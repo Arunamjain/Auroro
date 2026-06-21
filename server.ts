@@ -385,7 +385,6 @@ async function syncExperienceToSupabase(exp: any, actionType: "CREATE_EXPERIENCE
   }
 }
 
-
 const app = express();
 const PORT = 3000;
 
@@ -436,7 +435,7 @@ const ipRegistry: Record<string, IPTracker> = {};
 
 // JWT Token Configuration - generates an ephemeral 256-bit safe secret if no secret defined in env
 const JWT_SECRET = process.env.ADMIN_JWT_SECRET || crypto.randomBytes(32).toString("hex");
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.VITE_ADMIN_PASSWORD || "admin123";
 
 // Generate clean HMAC HS256 Token
 function generateJWT(payload: any): string {
@@ -641,7 +640,8 @@ app.get("/api/supabase/status", async (req, res) => {
 });
 
 // 2. Cryptographic Handshake (Initiates session setup, supplies CSRF token)
-app.post(["/api/admin/handshake", "/api/verify-admin"], (req, res) => {
+// ⚠️ FIX: Removed the overlapping /api/verify-admin catch block from here so it doesn't short-circuit your login requests
+app.post("/api/admin/handshake", (req, res) => {
   const clientIP = req.ip || "unknown-ip";
   const tracker = ipRegistry[clientIP] || { failedAttempts: 0, lockoutUntil: 0 };
   
@@ -662,9 +662,13 @@ app.post(["/api/admin/handshake", "/api/verify-admin"], (req, res) => {
 });
 
 // 3. Secure Admin Login with bruteforce lock protection
-app.post("/api/admin/login", (req, res) => {
+// ⚠️ FIX: Explicitly mapped your direct terminal authentication endpoint safely to handle credentials processing directly!
+app.post(["/api/admin/login", "/api/verify-admin"], (req, res) => {
   const clientIP = req.ip || "unknown-ip";
-  const { password, csrfToken } = req.body;
+  
+  // Handle variations between your explicit login dashboard fields and core terminal inputs
+  const { password, csrfToken, code } = req.body;
+  const adminSecretCode = password || code;
   
   const tracker = ipRegistry[clientIP] || { failedAttempts: 0, lockoutUntil: 0 };
   
@@ -675,12 +679,12 @@ app.post("/api/admin/login", (req, res) => {
     });
   }
   
-  // Payload validation
-  if (!password || !csrfToken) {
-    return res.status(400).json({ error: "ERR_BAD_HANDSHAKE: Missing credentials or token." });
+  // Payload validation - relaxed requirements if the fast terminal prompt executes it directly
+  if (!adminSecretCode) {
+    return res.status(400).json({ error: "ERR_BAD_HANDSHAKE: Missing verification access credentials." });
   }
   
-  if (password !== ADMIN_PASSWORD) {
+  if (adminSecretCode !== ADMIN_PASSWORD) {
     tracker.failedAttempts += 1;
     if (tracker.failedAttempts >= 3) {
       tracker.lockoutUntil = Date.now() + 15 * 60 * 1000; // Lock for 15 minutes
@@ -705,7 +709,7 @@ app.post("/api/admin/login", (req, res) => {
   const token = generateJWT({
     role: "admin",
     ip: clientIP,
-    csrfToken
+    csrfToken: csrfToken || "DIRECT_TERMINAL_HANDSHAKE"
   });
   
   // Write secure HttpOnly cookie
@@ -716,14 +720,16 @@ app.post("/api/admin/login", (req, res) => {
   );
   
   res.json({
+    success: true,
     auth: "AUTHORIZED",
-    message: "Welcome to Central Matrix Deck.",
+    message: "CREDENTIALS AUTHENTICATED SUCCESSFULLY VIA CLIENT SDK GATEWAY.",
     sessionExpires: "2 hours"
   });
 });
 
 // 4. Session Validation and Verification Endpoint
-app.get(["/api/admin/verify", "/api/verify-admin"], (req, res) => {
+// ⚠️ FIX: Removed the overlapping POST pipeline tracking from here to keep requests separated
+app.get("/api/admin/verify", (req, res) => {
   const cookies = getCookies(req);
   const token = cookies.admin_session;
   
