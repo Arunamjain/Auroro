@@ -488,11 +488,16 @@ if (fs.existsSync(PORTFOLIO_JSON_PATH)) {
 function savePortfolioState(updatedData: any) {
   currentPortfolio = sanitizeInput(updatedData);
   
-  // Write to JSON file for high persistent durability
-  fs.writeFileSync(PORTFOLIO_JSON_PATH, JSON.stringify(currentPortfolio, null, 2), "utf8");
+  try {
+    // Write to JSON file for high persistent durability
+    fs.writeFileSync(PORTFOLIO_JSON_PATH, JSON.stringify(currentPortfolio, null, 2), "utf8");
+  } catch (err) {
+    console.warn("[SYS_WARNING] Failed to write portfolio JSON to disk (filesystem may be read-only e.g. Vercel):", err);
+  }
   
-  // Compiling back into a clean ES Module `.ts` structure so build/ZIP backups are perfect
-  const tsTemplate = `export interface SkillGroup {
+  try {
+    // Compiling back into a clean ES Module `.ts` structure so build/ZIP backups are perfect
+    const tsTemplate = `export interface SkillGroup {
   category: string;
   skills: string[];
 }
@@ -548,8 +553,11 @@ export interface PortfolioData {
 
 export const portfolioData: PortfolioData = ${JSON.stringify(currentPortfolio, null, 2)};
 `;
-  
-  fs.writeFileSync(PORTFOLIO_TS_PATH, tsTemplate, "utf8");
+    
+    fs.writeFileSync(PORTFOLIO_TS_PATH, tsTemplate, "utf8");
+  } catch (err) {
+    console.warn("[SYS_WARNING] Failed to write portfolio TS compiled module to disk (filesystem may be read-only):", err);
+  }
 }
 
 // --- SECURE ROUTING ENDPOINTS ---

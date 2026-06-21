@@ -48,7 +48,6 @@ export async function fetchProjectsWithSkills(): Promise<ProjectItem[]> {
       .select(`
         id,
         title,
-        subtitle,
         highlights,
         stats,
         project_skills_map (
