@@ -1068,9 +1068,14 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[SYS] Full-stack application online. Listening on Port ${PORT}`);
-  });
+  // Bypass active local port binding in Vercel Serverless environment
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`[SYS] Full-stack application online. Listening on Port ${PORT}`);
+    });
+  }
 }
 
 startServer();
+
+export default app;
