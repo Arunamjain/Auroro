@@ -1,0 +1,1732 @@
+import React, { useState, useEffect } from "react";
+import { usePortfolio } from "../context/PortfolioContext";
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { 
+  Lock, 
+  Terminal, 
+  Cpu, 
+  ShieldCheck, 
+  FolderGit2, 
+  Settings, 
+  Layers, 
+  FolderLock, 
+  Plus, 
+  Trash2, 
+  Edit3, 
+  X, 
+  Save, 
+  CheckCircle2, 
+  RefreshCw, 
+  User, 
+  Briefcase,
+  Award
+} from "lucide-react";
+
+interface AdminDashboardProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps) {
+  const { portfolio, refreshPortfolio } = usePortfolio();
+  
+  // Authentication & session state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  const [csrfToken, setCsrfToken] = useState<string>("");
+  
+  // Handshake terminal logs effect
+  const [handshakeLogs, setHandshakeLogs] = useState<string[]>([]);
+  const [handshakePhase, setHandshakePhase] = useState<"idle" | "handshaking" | "prompt">("idle");
+
+  // Dashboard Navigation State
+  const [activeTab, setActiveTab] = useState<"projects" | "skills" | "experience" | "communications" | "certifications">("projects");
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Active form editor items
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const [isAddingNew, setIsAddingNew] = useState(false);
+
+  // Certifications editor state
+  const [certName, setCertName] = useState("");
+  const [certIssuer, setCertIssuer] = useState("");
+  const [certDate, setCertDate] = useState("");
+  const [certUrl, setCertUrl] = useState("");
+
+  // --- COMPONENT FORM RECORD STATES ---
+  // Projects editor
+  const [projId, setProjId] = useState("");
+  const [projTitle, setProjTitle] = useState("");
+  const [projSubtitle, setProjSubtitle] = useState("");
+  const [projTechString, setProjTechString] = useState("");
+  const [projHighlights, setProjHighlights] = useState<string[]>([""]);
+  const [projStats, setProjStats] = useState<{ label: string; value: string }[]>([]);
+
+  // Experience editor
+  const [expId, setExpId] = useState("");
+  const [expRole, setExpRole] = useState("");
+  const [expCompany, setExpCompany] = useState("");
+  const [expLocation, setExpLocation] = useState("");
+  const [expPeriod, setExpPeriod] = useState("");
+  const [expHighlights, setExpHighlights] = useState<string[]>([""]);
+
+  // Skills Editor group structure
+  const [skillGroups, setSkillGroups] = useState<any[]>([]);
+
+  // Communications parameters
+  const [personalName, setPersonalName] = useState("");
+  const [personalTitle, setPersonalTitle] = useState("");
+  const [personalSubtitle, setPersonalSubtitle] = useState("");
+  const [personalEmail, setPersonalEmail] = useState("");
+  const [personalLocation, setPersonalLocation] = useState("");
+  const [personalGithub, setPersonalGithub] = useState("");
+  const [personalLinkedin, setPersonalLinkedin] = useState("");
+  const [personalBio, setPersonalBio] = useState("");
+
+  // Check initial login state on mount
+  useEffect(() => {
+    if (isOpen) {
+      checkSessionStatus();
+    }
+  }, [isOpen]);
+
+  // Load communications form defaults
+  useEffect(() => {
+    if (portfolio) {
+      setPersonalName(portfolio.personalInfo.name);
+      setPersonalTitle(portfolio.personalInfo.title);
+      setPersonalSubtitle(portfolio.personalInfo.subTitle);
+      setPersonalEmail(portfolio.personalInfo.email);
+      setPersonalLocation(portfolio.personalInfo.location);
+      setPersonalGithub(portfolio.personalInfo.githubUrl);
+      setPersonalLinkedin(portfolio.personalInfo.linkedinUrl);
+      setPersonalBio(portfolio.personalInfo.bio);
+      
+      // Load skills deep clone so arrays edit safely
+      setSkillGroups(JSON.parse(JSON.stringify(portfolio.skills)));
+    }
+  }, [portfolio, isAuthenticated]);
+
+  // Handle automatic deauthentication and panel closure on tab switch, window minimization, or tab close
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleDeauthOnExit = async () => {
+      try {
+        await fetch("/api/admin/logout", { method: "POST" });
+      } catch (e) {
+        console.error("Clean logout on exit failed", e);
+      }
+      setIsAuthenticated(false);
+      onClose();
+      refreshPortfolio();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        handleDeauthOnExit();
+      }
+    };
+
+    const handlePageHide = () => {
+      handleDeauthOnExit();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [isAuthenticated, onClose, refreshPortfolio]);
+
+  const checkSessionStatus = async () => {
+    try {
+      const res = await fetch("/api/admin/verify");
+      if (res.ok) {
+        const body = await res.json();
+        if (body.auth) {
+          setIsAuthenticated(true);
+          setCsrfToken(body.csrfToken);
+        }
+      } else {
+        setIsAuthenticated(false);
+        triggerHandshakeSequence();
+      }
+    } catch {
+      setIsAuthenticated(false);
+      triggerHandshakeSequence();
+    }
+  };
+
+  const triggerHandshakeSequence = async () => {
+    setHandshakePhase("handshaking");
+    setHandshakeLogs([]);
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    
+    const steps = [
+      "STATUS: STANDBY",
+      "[HANDSHAKE] Generating RSA key payload parameters...",
+      "[HANDSHAKE] Connecting to remote gateway console host...",
+      "[HANDSHAKE] Establishing Diffie-Hellman entropy verification...",
+      "[HANDSHAKE] Verification complete. Loading prompt..."
+    ];
+    
+    for (let i = 0; i < steps.length; i++) {
+      setHandshakeLogs((prev) => [...prev, steps[i]]);
+      await sleep(220);
+    }
+    
+    try {
+      const res = await fetch("/api/admin/handshake", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setCsrfToken(data.csrfToken);
+        setHandshakePhase("prompt");
+      } else {
+        setLoginError(data.error || "Handshake rejected by telemetry firewall.");
+        setHandshakePhase("idle");
+      }
+    } catch {
+      setLoginError("Gateway network port diagnostic failed.");
+      setHandshakePhase("idle");
+    }
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password) return;
+
+    setLoading(true);
+    setLoginError(null);
+
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, csrfToken })
+      });
+      const data = await res.json();
+      
+      setLoading(false);
+      if (res.ok) {
+        setIsAuthenticated(true);
+        setPassword("");
+        setSaveStatus("Logged in successfully.");
+        setTimeout(() => setSaveStatus(null), 3000);
+      } else {
+        setLoginError(data.error || "Authentication error.");
+        if (data.error && data.error.includes("attempts remaining")) {
+          const match = data.error.match(/(\d+)\s+attempts/);
+          if (match) setAttemptsLeft(parseInt(match[1]));
+        }
+      }
+    } catch {
+      setLoading(false);
+      setLoginError("Failed to communicate with authentication service.");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/admin/logout", { method: "POST" });
+    } catch (e) {
+      console.error(e);
+    }
+    setIsAuthenticated(false);
+    setHandshakePhase("idle");
+    refreshPortfolio();
+    window.dispatchEvent(new Event("admin-logout"));
+  };
+
+  const [seedingLoading, setSeedingLoading] = useState(false);
+
+  const handleSupabaseSeeding = async () => {
+    if (!confirm("Are you sure you want to seed your Supabase database? This will clear existing records in your experiences, projects, and skills maps to load the designated seeds.")) return;
+    
+    setSeedingLoading(true);
+    setActionError(null);
+    setSaveStatus("Syncing seeds & tables...");
+
+    try {
+      const res = await fetch("/api/admin/seed", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken
+        }
+      });
+      const data = await res.json();
+      setSeedingLoading(false);
+      
+      if (res.ok) {
+        setSaveStatus("Supabase DB successfully seeded!");
+        setTimeout(() => setSaveStatus(null), 3000);
+        refreshPortfolio();
+      } else {
+        setActionError(data.error || "Failed to seed Supabase database.");
+        setSaveStatus(null);
+      }
+    } catch (e: any) {
+      setSeedingLoading(false);
+      setActionError(e.message || "Failed to execute seeding pipeline.");
+      setSaveStatus(null);
+    }
+  };
+
+  // Generic Save Pipeline representing portfolio state transmission to backend
+  const pushPortfolioUpdate = async (updatedData: any) => {
+    setLoading(true);
+    setActionError(null);
+    setSaveStatus("Saving changes...");
+
+    try {
+      const res = await fetch("/api/admin/update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken
+        },
+        body: JSON.stringify({ updatedData })
+      });
+      const data = await res.json();
+      setLoading(false);
+      
+      if (res.ok) {
+        setSaveStatus("Changes successfully saved!");
+        setTimeout(() => setSaveStatus(null), 3000);
+        refreshPortfolio();
+        
+        // Reset editor form indices to avoid lingering screens
+        setEditingItemIndex(null);
+        setIsAddingNew(false);
+      } else {
+        setActionError(data.error || "Failed to save adjustments.");
+        setSaveStatus(null);
+      }
+    } catch {
+      setLoading(false);
+      setActionError("Failed to save changes. Please try again.");
+      setSaveStatus(null);
+    }
+  };
+
+  // --- CRUD ACTIONS ---
+
+  // Projects CRUD
+  const startEditProject = (idx: number) => {
+    const item = portfolio.projects[idx];
+    setEditingItemIndex(idx);
+    setIsAddingNew(false);
+    
+    setProjId(item.id);
+    setProjTitle(item.title);
+    setProjSubtitle(item.subtitle);
+    setProjTechString(item.tech.join(", "));
+    setProjHighlights([...item.highlights]);
+    setProjStats(item.stats ? JSON.parse(JSON.stringify(item.stats)) : []);
+  };
+
+  const startAddProject = () => {
+    setEditingItemIndex(null);
+    setIsAddingNew(true);
+    
+    setProjId("new-module-" + Math.floor(Math.random() * 1000));
+    setProjTitle("");
+    setProjSubtitle("");
+    setProjTechString("");
+    setProjHighlights([""]);
+    setProjStats([
+      { label: "Data Integrity", value: "99%+" },
+      { label: "Metric Ratio", value: "85%" }
+    ]);
+  };
+
+  const saveProjectForm = () => {
+    if (!projTitle || !projId) {
+      setActionError("Title and Module ID parameters are mandatory.");
+      return;
+    }
+
+    const compiledItem = {
+      id: projId.trim().toLowerCase().replace(/\s+/g, "-"),
+      title: projTitle,
+      subtitle: projSubtitle,
+      tech: projTechString.split(",").map(t => t.trim()).filter(Boolean),
+      highlights: projHighlights.map(h => h.trim()).filter(Boolean),
+      stats: projStats.filter(s => s.label.trim())
+    };
+
+    const updatedProjects = [...portfolio.projects];
+    if (isAddingNew) {
+      updatedProjects.push(compiledItem);
+    } else if (editingItemIndex !== null) {
+      updatedProjects[editingItemIndex] = compiledItem;
+    }
+
+    const finalPortfolio = {
+      ...portfolio,
+      projects: updatedProjects
+    };
+
+    pushPortfolioUpdate(finalPortfolio);
+  };
+
+  const deleteProjectIndex = (idx: number) => {
+    if (!confirm(`Are you sure you want to delete Project: "${portfolio.projects[idx].title}"?`)) return;
+    
+    const updatedProjects = portfolio.projects.filter((_, i) => i !== idx);
+    const finalPortfolio = {
+      ...portfolio,
+      projects: updatedProjects
+    };
+    pushPortfolioUpdate(finalPortfolio);
+  };
+
+  // Experience CRUD
+  const startEditExperience = (idx: number) => {
+    const item = portfolio.experience[idx];
+    setEditingItemIndex(idx);
+    setIsAddingNew(false);
+    
+    setExpId(item.id);
+    setExpRole(item.role);
+    setExpCompany(item.company);
+    setExpLocation(item.location);
+    setExpPeriod(item.period);
+    setExpHighlights([...item.highlights]);
+  };
+
+  const startAddExperience = () => {
+    setEditingItemIndex(null);
+    setIsAddingNew(true);
+    
+    setExpId("exp-node-" + Math.floor(Math.random() * 1000));
+    setExpRole("");
+    setExpCompany("");
+    setExpLocation("");
+    setExpPeriod("");
+    setExpHighlights([""]);
+  };
+
+  const saveExperienceForm = () => {
+    if (!expRole || !expCompany || !expId) {
+      setActionError("Role, Company, and Node ID parameters are mandatory.");
+      return;
+    }
+
+    const compiledItem = {
+      id: expId.trim(),
+      role: expRole,
+      company: expCompany,
+      location: expLocation,
+      period: expPeriod,
+      highlights: expHighlights.map(h => h.trim()).filter(Boolean)
+    };
+
+    const updatedExperience = [...portfolio.experience];
+    if (isAddingNew) {
+      updatedExperience.push(compiledItem);
+    } else if (editingItemIndex !== null) {
+      updatedExperience[editingItemIndex] = compiledItem;
+    }
+
+    const finalPortfolio = {
+      ...portfolio,
+      experience: updatedExperience
+    };
+
+    pushPortfolioUpdate(finalPortfolio);
+  };
+
+  const deleteExperienceIndex = (idx: number) => {
+    if (!confirm(`Are you sure you want to delete Experience: "${portfolio.experience[idx].role}"?`)) return;
+    
+    const updatedExperience = portfolio.experience.filter((_, i) => i !== idx);
+    const finalPortfolio = {
+      ...portfolio,
+      experience: updatedExperience
+    };
+    pushPortfolioUpdate(finalPortfolio);
+  };
+
+  // Skills Group CRUD actions
+  const saveSkillsSetup = () => {
+    const finalPortfolio = {
+      ...portfolio,
+      skills: skillGroups
+    };
+    pushPortfolioUpdate(finalPortfolio);
+  };
+
+  const addSkillToGroup = (gIdx: number, text: string) => {
+    if (!text.trim()) return;
+    const cloned = [...skillGroups];
+    cloned[gIdx].skills.push(text.trim());
+    setSkillGroups(cloned);
+  };
+
+  const deleteSkillFromGroup = (gIdx: number, sIdx: number) => {
+    const cloned = [...skillGroups];
+    cloned[gIdx].skills.splice(sIdx, 1);
+    setSkillGroups(cloned);
+  };
+
+  const addSkillCategoryGroup = () => {
+    const name = prompt("Enter Name of New Custom Skill Category (e.g., Cloud Architectures):");
+    if (!name) return;
+    setSkillGroups([...skillGroups, { category: name, skills: [] }]);
+  };
+
+  const deleteSkillGroupIndex = (idx: number) => {
+    if (!confirm(`Are you sure you want to delete catalog group "${skillGroups[idx].category}"?`)) return;
+    setSkillGroups(skillGroups.filter((_, i) => i !== idx));
+  };
+
+  // Certifications CRUD methods
+  const startEditCertification = (idx: number) => {
+    const item = portfolio.certifications[idx];
+    setEditingItemIndex(idx);
+    setIsAddingNew(false);
+    setCertName(item.name);
+    setCertIssuer(item.issuer);
+    setCertDate(item.date);
+    setCertUrl((item as any).credentialUrl || "");
+  };
+
+  const startAddCertification = () => {
+    setEditingItemIndex(null);
+    setIsAddingNew(true);
+    setCertName("");
+    setCertIssuer("");
+    setCertDate("");
+    setCertUrl("");
+  };
+
+  const addNewCertificate = async (certData: { title: string; issuer: string; issueDate: string; credentialUrl: string }) => {
+    setLoading(true);
+    setActionError(null);
+    setSaveStatus("Ingesting certificate node to remote registry...");
+
+    try {
+      const supabase = getSupabaseClient();
+      if (!supabase || typeof supabase.from !== "function") {
+        throw new Error("Supabase client not operational.");
+      }
+
+      // Automatically assign the 'updated_by' column with active admin's user UUID
+      const { data: userResp } = await supabase.auth.getUser();
+      const { data: sessionResp } = await supabase.auth.getSession();
+      const uuid = userResp?.user?.id || sessionResp?.session?.user?.id || "arunamjain-fallback-uid";
+
+      // Insert new row into 'public.certificates' table
+      const { error: insertErr } = await supabase
+        .from("certificates")
+        .insert({
+          title: certData.title,
+          issuer: certData.issuer,
+          issue_date: certData.issueDate,
+          period: certData.issueDate,
+          credential_url: certData.credentialUrl,
+          updated_by: uuid,
+          created_at: new Date().toISOString()
+        });
+
+      if (insertErr) {
+        throw new Error(insertErr.message);
+      }
+
+      // Automatically append tracking entry to 'administration_logs' table with action_performed: 'CREATE_CERTIFICATE'
+      const { error: logErr } = await supabase
+        .from("administration_logs")
+        .insert({
+          action_performed: "CREATE_CERTIFICATE",
+          details: `Created certificate: "${certData.title}" issued by "${certData.issuer}"`,
+          created_at: new Date().toISOString()
+        });
+
+      if (logErr) {
+        console.warn("[ADMIN_LOG] Log logging encountered warning:", logErr.message);
+      }
+
+      setLoading(false);
+      setSaveStatus("Certificate successfully registered in database.");
+      setTimeout(() => setSaveStatus(null), 3000);
+
+      // Trigger state refresh for instant timeline display
+      await refreshPortfolio();
+
+      // Clear form inputs and close form overlay
+      setCertName("");
+      setCertIssuer("");
+      setCertDate("");
+      setCertUrl("");
+      setIsAddingNew(false);
+      setEditingItemIndex(null);
+
+    } catch (err: any) {
+      setLoading(false);
+      setSaveStatus(null);
+      // Failsafe error feedback as requested
+      setActionError("ERROR: DATA_SUBMISSION_VECTOR_REJECTED");
+      console.error("[SUPABASE_WRITE_FATAL] Error writing new certificate record:", err);
+    }
+  };
+
+  const saveCertificationForm = () => {
+    if (!certName || !certIssuer) {
+      setActionError("Certification Name and Issuer parameters are mandatory.");
+      return;
+    }
+
+    if (isAddingNew) {
+      addNewCertificate({
+        title: certName.trim(),
+        issuer: certIssuer.trim(),
+        issueDate: certDate.trim() || new Date().getFullYear().toString(),
+        credentialUrl: certUrl.trim()
+      });
+    } else {
+      const compiledItem = {
+        name: certName.trim(),
+        issuer: certIssuer.trim(),
+        date: certDate.trim() || new Date().getFullYear().toString(),
+        credentialUrl: certUrl.trim()
+      };
+
+      const updatedCerts = [...(portfolio.certifications || [])];
+      if (editingItemIndex !== null) {
+        updatedCerts[editingItemIndex] = compiledItem;
+      }
+
+      const finalPortfolio = {
+        ...portfolio,
+        certifications: updatedCerts
+      };
+
+      pushPortfolioUpdate(finalPortfolio);
+    }
+  };
+
+  const deleteCertificationIndex = (idx: number) => {
+    if (!confirm(`Are you sure you want to delete Certification: "${portfolio.certifications[idx].name}"?`)) return;
+    
+    const updatedCerts = portfolio.certifications.filter((_, i) => i !== idx);
+    const finalPortfolio = {
+      ...portfolio,
+      certifications: updatedCerts
+    };
+    pushPortfolioUpdate(finalPortfolio);
+  };
+
+  // Communications parameters CRUD saves
+  const saveCommunicationsData = () => {
+    const finalPortfolio = {
+      ...portfolio,
+      personalInfo: {
+        name: personalName,
+        title: personalTitle,
+        subTitle: personalSubtitle,
+        email: personalEmail,
+        location: personalLocation,
+        githubUrl: personalGithub,
+        linkedinUrl: personalLinkedin,
+        bio: personalBio
+      }
+    };
+    pushPortfolioUpdate(finalPortfolio);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-slate-950/90 z-[9999] overflow-y-auto font-mono flex items-center justify-center p-4 backdrop-blur-md text-sm antialiased text-slate-200">
+      <div 
+        id="admin-security-dock"
+        className="w-full max-w-5xl bg-neutral-900 border border-neutral-800 rounded-none p-5 md:p-6 relative flex flex-col shadow-2xl min-h-0 my-8 md:h-[650px] md:overflow-hidden font-mono"
+      >
+        {/* Dashboard Frame Header */}
+        <div className="flex justify-between items-center border-b border-neutral-800 pb-4 mb-4 select-none relative z-10 w-full font-mono">
+          <div className="flex items-center space-x-3">
+            <div className={`p-2 rounded-none bg-[var(--theme-accent)]/10 border border-[var(--theme-accent)]/20 text-[var(--theme-accent)] ${isAuthenticated ? "animate-pulse" : ""}`}>
+              <ShieldCheck className="w-5 h-5 text-[var(--theme-accent)]" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h1 className="text-sm font-semibold text-white uppercase tracking-wider font-mono">
+                  &gt;_ ROOT_ADMIN_DOCK
+                </h1>
+                <span className={`text-[10px] px-2 py-0.5 rounded-none border font-mono font-bold ${
+                  isAuthenticated 
+                    ? "bg-cyan-950/40 text-[var(--theme-accent)] border-cyan-800/30" 
+                    : "bg-red-955/20 text-red-400 border-red-950/30"
+                }`}>
+                  {isAuthenticated ? "[ACTIVE_SESSION]" : "[LOCKED]"}
+                </span>
+              </div>
+              <p className="text-[10px] text-neutral-400 mt-0.5 font-mono">AUTHORIZED PERSONNEL INTERFACE V2.1</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2 relative z-20">
+            {isAuthenticated && (
+              <button
+                onClick={handleLogout}
+                className="px-3 py-1.5 border border-red-955 bg-red-955/10 hover:bg-rose-955/20 text-red-400 hover:text-rose-300 rounded-none transition duration-200 text-xxs font-mono flex items-center space-x-1.5 cursor-pointer shrink-0 shadow-lg"
+                title="Logout Session"
+              >
+                <span>LOGOUT</span>
+              </button>
+            )}
+            <button 
+              onClick={onClose}
+              className="p-1.5 border border-neutral-850 text-neutral-400 hover:text-white rounded-none hover:bg-neutral-800 transition duration-200 cursor-pointer shrink-0"
+              title="Close Dashboard"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* ==================== SCREEN PHASE 1: UN-AUTHENTICATED SYSTEM LOCK ==================== */}
+        {!isAuthenticated && (
+          <div className="flex-1 flex flex-col justify-center items-center py-10 relative z-10 w-full max-w-sm mx-auto font-mono">
+            {handshakePhase === "idle" && (
+              <div className="text-center space-y-6 w-full">
+                <div className="h-12 w-12 rounded-none bg-[var(--theme-accent)]/10 border border-[var(--theme-accent)]/25 text-[var(--theme-accent)] flex items-center justify-center mx-auto">
+                  <Lock className="w-5 h-5 animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <h2 className="text-white font-medium text-xs tracking-wider uppercase text-[var(--theme-accent)]">&gt;_ ACCESS_RESTRICTED</h2>
+                  <p className="text-neutral-400 text-xxs leading-relaxed">
+                    A secure cryptographic handshake is required to unlock the administration layer.
+                  </p>
+                </div>
+                {loginError && (
+                  <div className="p-3 border border-red-900/40 bg-red-950/25 text-red-400 text-xxs rounded-none text-center font-bold">
+                    {loginError}
+                  </div>
+                )}
+                <button
+                  onClick={triggerHandshakeSequence}
+                  className="w-full py-2.5 bg-[var(--theme-accent)] hover:bg-cyan-400 text-neutral-955 font-bold rounded-none transition duration-200 cursor-pointer flex items-center justify-center space-x-2 text-xs uppercase"
+                >
+                  <RefreshCw className="w-4 h-4 text-neutral-955 animate-spin-slow" />
+                  <span>INIT_CRYPTOGRAPHIC_HANDSHAKE</span>
+                </button>
+              </div>
+            )}
+
+            {handshakePhase === "handshaking" && (
+              <div className="w-full text-center space-y-4">
+                <RefreshCw className="w-8 h-8 text-[var(--theme-accent)] animate-spin mx-auto animate-spin-slow" />
+                <p className="text-xxs text-neutral-400 font-mono tracking-widest uppercase">
+                  ESTABLISHING SECURE PORT_3000 CONSOLE LINK...
+                </p>
+                <div className="h-1 w-full bg-neutral-800 rounded-none overflow-hidden">
+                  <div className="h-full bg-[var(--theme-accent)]" style={{ width: "70%" }} />
+                </div>
+                <div className="text-left font-mono text-[9px] text-neutral-500 bg-black/40 p-2.5 border border-neutral-800 space-y-1 h-24 overflow-y-auto mt-2 select-none">
+                  {handshakeLogs.map((log, idx) => (
+                    <div key={idx} className="truncate text-[var(--theme-accent)]/80">&gt; {log}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {handshakePhase === "prompt" && (
+              <div className="w-full space-y-5">
+                <div className="text-center space-y-2">
+                  <div className="h-12 w-12 rounded-none bg-[var(--theme-accent)]/10 border border-[var(--theme-accent)]/25 text-[var(--theme-accent)] flex items-center justify-center mx-auto">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <h2 className="text-white text-xs font-semibold uppercase tracking-wider text-[var(--theme-accent)]">&gt;_ PROMPT_PASSWORD</h2>
+                  <p className="text-xxs text-neutral-400">PROVIDE DECK AUTHORIZATION CREDENTIALS</p>
+                </div>
+                
+                <form onSubmit={handleLoginSubmit} className="space-y-4 w-full font-mono text-xs">
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-xxs text-neutral-400 block uppercase tracking-wider">PASSWORD_INPUT</label>
+                    <div className="relative">
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full py-2.5 pl-10 pr-4 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none placeholder-neutral-800 transition duration-200"
+                        disabled={loading}
+                      />
+                      <Cpu className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                    </div>
+                  </div>
+
+                  {loginError && (
+                    <div className="p-3 border border-red-900/40 bg-red-950/25 text-red-400 text-xxs rounded-none text-left font-bold">
+                      {loginError}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 bg-[var(--theme-accent)] hover:bg-cyan-400 text-neutral-955 font-bold rounded-none transition duration-200 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-40 uppercase"
+                    disabled={loading || !password}
+                  >
+                    {loading ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-neutral-955" />
+                    ) : (
+                      <ShieldCheck className="w-3.5 h-3.5 text-neutral-955" />
+                    )}
+                    <span>AUTHORIZE_NODE</span>
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ==================== SCREEN PHASE 2: AUTHENTICATED HUDS & CONTROLS ==================== */}
+        {isAuthenticated && (
+          <div className="flex-1 flex flex-col md:flex-row gap-6 relative z-10 min-h-0 md:h-full md:overflow-hidden font-mono text-xs">
+            {/* Sidebar Controls */}
+            <div className="md:w-48 flex flex-col gap-1.5 shrink-0 select-none border-b md:border-b-0 md:border-r border-neutral-800 pb-4 md:pb-0 md:pr-4 font-mono font-semibold">
+              <span className="text-[10px] text-neutral-450 font-bold uppercase tracking-wider block mb-2 px-1 text-[var(--theme-accent)]">NAVIGATION</span>
+              
+              <button
+                onClick={() => { setActiveTab("projects"); setEditingItemIndex(null); setIsAddingNew(false); }}
+                className={`p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
+                  activeTab === "projects"
+                    ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white"
+                    : "border-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/40"
+                }`}
+              >
+                <FolderGit2 className="w-4 h-4 shrink-0 text-[var(--theme-accent)]" />
+                <span className="font-semibold text-xs tracking-wider uppercase">Projects</span>
+              </button>
+
+              <button
+                onClick={() => { setActiveTab("skills"); setEditingItemIndex(null); setIsAddingNew(false); }}
+                className={`p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
+                  activeTab === "skills"
+                    ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white"
+                    : "border-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/40"
+                }`}
+              >
+                <Layers className="w-4 h-4 shrink-0 text-[var(--theme-accent)]" />
+                <span className="font-semibold text-xs tracking-wider uppercase">Skills Matrix</span>
+              </button>
+
+              <button
+                onClick={() => { setActiveTab("experience"); setEditingItemIndex(null); setIsAddingNew(false); }}
+                className={`p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
+                  activeTab === "experience"
+                    ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white"
+                    : "border-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/40"
+                }`}
+              >
+                <Briefcase className="w-4 h-4 shrink-0 text-[var(--theme-accent)]" />
+                <span className="font-semibold text-xs tracking-wider uppercase">Experience</span>
+              </button>
+
+              <button
+                onClick={() => { setActiveTab("communications"); setEditingItemIndex(null); setIsAddingNew(false); }}
+                className={`p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
+                  activeTab === "communications"
+                    ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white"
+                    : "border-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/40"
+                }`}
+              >
+                <Settings className="w-4 h-4 shrink-0 text-[var(--theme-accent)]" />
+                <span className="font-semibold text-xs tracking-wider uppercase">Settings</span>
+              </button>
+
+              <button
+                onClick={() => { setActiveTab("certifications"); setEditingItemIndex(null); setIsAddingNew(false); }}
+                className={`p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
+                  activeTab === "certifications"
+                    ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white"
+                    : "border-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/40"
+                }`}
+              >
+                <Award className="w-4 h-4 shrink-0 text-[var(--theme-accent)]" />
+                <span className="font-semibold text-xs tracking-wider uppercase">Credentials</span>
+              </button>
+
+              <div className="mt-8 md:mt-auto pt-4 border-t border-neutral-800 space-y-2">
+                <button
+                  onClick={handleSupabaseSeeding}
+                  disabled={seedingLoading}
+                  className="w-full py-2 border border-[var(--theme-accent)]/30 bg-[var(--theme-accent)]/5 hover:bg-[var(--theme-accent)]/15 text-[var(--theme-accent)] font-bold rounded-none transition duration-200 text-xxs font-mono cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${seedingLoading ? "animate-spin" : ""}`} />
+                  <span>{seedingLoading ? "SEEDING_DB..." : "SEED_SUPABASE_DB"}</span>
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full py-2 border border-red-950/40 bg-red-955/10 hover:bg-rose-955/20 text-red-400 font-bold rounded-none transition duration-200 text-xxs font-mono cursor-pointer uppercase tracking-wider"
+                >
+                  LOGOUT_SESSION
+                </button>
+              </div>
+            </div>
+
+            {/* Content Editor Frame Panel */}
+            <div className="flex-1 flex flex-col justify-between min-h-0 md:h-full md:overflow-hidden font-mono">
+              
+              {/* Output alerts for states */}
+              {(saveStatus || actionError) && (
+                <div className="mb-4 space-y-1.5 font-mono">
+                  {saveStatus && (
+                    <div className="p-3 border border-[var(--theme-accent)]/20 bg-[var(--theme-accent)]/5 text-[var(--theme-accent)] rounded-none flex items-center space-x-2 font-medium text-xxs animate-pulse lowercase font-mono">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{saveStatus}</span>
+                    </div>
+                  )}
+                  {actionError && (
+                    <div className="p-3 border border-rose-500/20 bg-rose-500/5 text-rose-450 rounded-none font-medium text-xxs flex items-center space-x-2 lowercase font-mono">
+                      <X className="w-4 h-4" />
+                      <span>{actionError}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ==================================================== */}
+              {/* TAB MODULE: PROJECTS */}
+              {/* ==================================================== */}
+              {activeTab === "projects" && (
+                <div className="flex-grow flex flex-col overflow-y-auto">
+                  {editingItemIndex === null && !isAddingNew ? (
+                    // Display Projects listing view
+                    <div className="space-y-4 font-mono">
+                      <div className="flex justify-between items-center bg-neutral-900 border border-neutral-800 p-4 rounded-none">
+                        <div>
+                          <h2 className="text-white font-bold text-xs uppercase tracking-wider text-[var(--theme-accent)]">&gt;_ Projects Inventory</h2>
+                          <p className="text-xxs text-neutral-400 select-none">RECORDED DEV NODES AND REPOSITORIES</p>
+                        </div>
+                        <button
+                          onClick={startAddProject}
+                          className="px-3.5 py-2 bg-[var(--theme-accent)] hover:bg-cyan-400 text-neutral-955 font-bold rounded-none transition duration-200 text-xxs flex items-center space-x-1.5 cursor-pointer uppercase tracking-wider"
+                        >
+                          <Plus className="w-4 h-4 text-neutral-955 shrink-0" />
+                          <span>NEW_NODE</span>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6">
+                        {portfolio.projects.map((proj, idx) => (
+                          <div 
+                            key={proj.id} 
+                            className="bg-neutral-950 p-4 border border-neutral-800 rounded-none hover:border-[var(--theme-accent)]/40 transition duration-200 relative flex flex-col justify-between min-h-[160px]"
+                          >
+                            <div>
+                              <div className="flex justify-between items-center mb-1.5">
+                                <span className="font-bold text-xs text-white uppercase tracking-wider">{proj.title}</span>
+                                <span className="text-[9px] px-2 py-0.5 bg-neutral-900 border border-neutral-800 rounded-none text-neutral-400 font-mono">[ID: {proj.id}]</span>
+                              </div>
+                              <p className="text-xxs text-[var(--theme-accent)] font-semibold tracking-widest uppercase mb-3">{proj.subtitle}</p>
+                              
+                              <div className="flex flex-wrap gap-1.5 mb-3">
+                                {proj.tech.map((t) => (
+                                  <span key={t} className="text-[10px] bg-neutral-900 text-neutral-300 px-2 py-0.5 rounded-none border border-neutral-800/60 font-mono">{t}</span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="flex justify-end gap-2 border-t border-neutral-850 pt-3 mt-3 select-none">
+                              <button
+                                onClick={() => startEditProject(idx)}
+                                className="px-3 py-1.5 border border-neutral-800 bg-neutral-900 text-neutral-300 rounded-none hover:text-[var(--theme-accent)] hover:border-[var(--theme-accent)] transition duration-150 flex items-center space-x-1.5 cursor-pointer font-bold text-xxs uppercase tracking-wider"
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                                <span>EDIT</span>
+                              </button>
+                              <button
+                                onClick={() => deleteProjectIndex(idx)}
+                                className="px-3 py-1.5 border border-red-950 bg-red-950/10 hover:bg-rose-950/30 text-red-450 rounded-none hover:border-red-900 hover:text-rose-305 transition duration-150 flex items-center space-x-1.5 cursor-pointer font-bold text-xxs uppercase tracking-wider"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                                <span>DELETE</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    // Display Projects Form Editor
+                    <div className="space-y-4 pb-6 font-mono">
+                      <div className="flex justify-between items-center pb-3 border-b border-neutral-800 font-mono">
+                        <span className="text-white font-bold text-xs flex items-center space-x-2 uppercase tracking-wider">
+                          <Edit3 className="w-4 h-4 text-[var(--theme-accent)]" />
+                          <span>{isAddingNew ? "INIT_NEW_PROJECT_NODE" : `EDIT_PROJECT_NODE: ${projId}`}</span>
+                        </span>
+                        <button
+                          onClick={() => { setEditingItemIndex(null); setIsAddingNew(false); }}
+                          className="px-2.5 py-1 text-xxs border border-neutral-850 rounded-none text-neutral-400 hover:text-white cursor-pointer hover:bg-neutral-800 transition uppercase tracking-wider"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">PROJECT_ID / SLUG_IDENTIFIER</label>
+                          <input
+                            type="text"
+                            value={projId}
+                            onChange={(e) => setProjId(e.target.value)}
+                            className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                            placeholder="e.g., bonito"
+                            disabled={!isAddingNew}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">TITLE_LABEL</label>
+                          <input
+                            type="text"
+                            value={projTitle}
+                            onChange={(e) => setProjTitle(e.target.value)}
+                            className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs"
+                            placeholder="e.g., Bonito"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">SUBTITLE_LABEL</label>
+                          <input
+                            type="text"
+                            value={projSubtitle}
+                            onChange={(e) => setProjSubtitle(e.target.value)}
+                            className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs"
+                            placeholder="e.g., Sports Analytics Backend"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">TECH_STACK_CSV_ARRAY</label>
+                          <input
+                            type="text"
+                            value={projTechString}
+                            onChange={(e) => setProjTechString(e.target.value)}
+                            className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs"
+                            placeholder="e.g., Python, FastAPI, Pandas, PostgreSQL"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 font-mono">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">KEY_HIGHLIGHTS_BULLETS</label>
+                          <button
+                            onClick={() => setProjHighlights([...projHighlights, ""])}
+                            className="px-2.5 py-1 text-xxs border border-neutral-800 text-[var(--theme-accent)] hover:text-cyan-300 hover:bg-neutral-850 rounded-none transition uppercase tracking-wider font-bold"
+                          >
+                            + ADD_RECORD
+                          </button>
+                        </div>
+                        
+                        {projHighlights.map((hl, hlIdx) => (
+                          <div key={hlIdx} className="flex gap-2">
+                            <input
+                              type="text"
+                              value={hl}
+                              onChange={(e) => {
+                                const arr = [...projHighlights];
+                                arr[hlIdx] = e.target.value;
+                                setProjHighlights(arr);
+                              }}
+                              className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none flex-grow text-xs font-mono"
+                              placeholder="Describe data outcomes, optimized performance records, etc."
+                            />
+                            <button
+                              onClick={() => {
+                                const arr = projHighlights.filter((_, i) => i !== hlIdx);
+                                setProjHighlights(arr.length ? arr : [""]);
+                              }}
+                              className="px-2.5 border border-red-950 bg-red-950/20 text-red-400 rounded-none hover:bg-rose-900 hover:text-white transition flex items-center justify-center p-2.5"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Stats metric dashboard */}
+                      <div className="space-y-3 font-mono">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">QUANTITATIVE_METRICS_STAT (MAX 3)</label>
+                          <button
+                            onClick={() => {
+                              if (projStats.length >= 3) return;
+                              setProjStats([...projStats, { label: "", value: "" }]);
+                            }}
+                            className="px-2.5 py-1 text-xxs border border-neutral-800 text-[var(--theme-accent)] hover:text-cyan-300 hover:bg-neutral-850 rounded-none transition disabled:opacity-40 uppercase tracking-wider font-bold"
+                            disabled={projStats.length >= 3}
+                          >
+                            + ADD_METRIC
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          {projStats.map((st, sIdx) => (
+                            <div key={sIdx} className="p-3 border border-neutral-800 rounded-none bg-neutral-950 space-y-2 relative">
+                              <button
+                                onClick={() => {
+                                  setProjStats(projStats.filter((_, i) => i !== sIdx));
+                                }}
+                                className="absolute top-1.5 right-1.5 text-neutral-400 hover:text-white"
+                              >
+                                <X className="w-3" />
+                              </button>
+                              
+                              <input
+                                type="text"
+                                value={st.label}
+                                onChange={(e) => {
+                                  const arr = [...projStats];
+                                  arr[sIdx].label = e.target.value;
+                                  setProjStats(arr);
+                                }}
+                                className="p-1.5 text-xxs bg-neutral-900 border border-neutral-850 outline-none text-white rounded-none w-full font-mono"
+                                placeholder="Label (e.g., Accuracy)"
+                              />
+                              <input
+                                type="text"
+                                value={st.value}
+                                onChange={(e) => {
+                                  const arr = [...projStats];
+                                  arr[sIdx].value = e.target.value;
+                                  setProjStats(arr);
+                                }}
+                                className="p-1.5 text-xxs bg-neutral-900 border border-neutral-850 outline-none text-white rounded-none w-full font-bold font-mono text-[var(--theme-accent)]"
+                                placeholder="Value (e.g., 99.4%)"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-neutral-800 flex justify-end gap-2 text-right">
+                        <button
+                          onClick={() => { setEditingItemIndex(null); setIsAddingNew(false); }}
+                          className="px-4 py-2 bg-transparent text-neutral-400 hover:text-white rounded-none transition text-xxs font-bold uppercase tracking-wider"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={saveProjectForm}
+                          disabled={loading}
+                          className="px-5 py-2 bg-[var(--theme-accent)] hover:bg-cyan-400 text-neutral-955 font-bold rounded-none transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-40 text-xxs uppercase tracking-wider"
+                        >
+                          <Save className="w-4 h-4 text-neutral-955 shrink-0" />
+                          <span>SAVE_CHANGES_NODE</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ==================================================== */}
+              {/* TAB MODULE: SKILLS */}
+              {/* ==================================================== */}
+              {activeTab === "skills" && (
+                <div className="flex-grow flex flex-col overflow-y-auto font-mono">
+                  <div className="flex justify-between items-center bg-neutral-900 border border-neutral-800 p-4 rounded-none mb-4 select-none">
+                    <div>
+                      <h2 className="text-white font-bold text-xs uppercase tracking-wider text-[var(--theme-accent)]">&gt;_ Skills Inventory</h2>
+                      <p className="text-xxs text-neutral-400 select-none">CONFIGURE SKILL TAGS AND RELATED CLUSTERS</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={addSkillCategoryGroup}
+                        className="px-3 py-1.5 bg-neutral-950 hover:bg-neutral-850 border border-neutral-850 text-neutral-300 hover:text-white rounded-none transition duration-200 text-xxs flex items-center space-x-1 cursor-pointer uppercase tracking-wider font-bold"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>NEW_CATEGORY</span>
+                      </button>
+                      <button
+                        onClick={saveSkillsSetup}
+                        disabled={loading}
+                        className="px-3 py-1.5 bg-[var(--theme-accent)] hover:bg-cyan-400 text-neutral-955 font-bold rounded-none transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-40 text-xxs uppercase tracking-wider"
+                      >
+                        <Save className="w-4 h-4 text-neutral-955 shrink-0" />
+                        <span>SAVE_INVENTORY</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pb-6">
+                    {skillGroups.map((group, groupIdx) => {
+                      return (
+                        <div key={groupIdx} className="bg-neutral-950 p-4 border border-neutral-800 rounded-none space-y-3 relative">
+                          <button
+                            onClick={() => deleteSkillGroupIndex(groupIdx)}
+                            className="absolute top-2.5 right-2 text-rose-400 hover:text-rose-350 p-1.5 border border-red-950 bg-rose-955/10 rounded-none cursor-pointer text-xxs font-bold"
+                            title="Delete Whole Category"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-neutral-400 block font-bold uppercase tracking-wider">CATEGORY_HEADER_TAG</span>
+                            <input
+                              type="text"
+                              value={group.category}
+                              onChange={(e) => {
+                                const cloned = [...skillGroups];
+                                cloned[groupIdx].category = e.target.value;
+                                setSkillGroups(cloned);
+                              }}
+                              className="text-white font-bold bg-transparent border-b border-dashed border-neutral-700 focus:border-[var(--theme-accent)] outline-none text-xs tracking-wider uppercase pb-0.5"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <span className="text-[10px] text-neutral-400 block font-bold uppercase tracking-wider">ACTIVE_CHIPS_TAGS</span>
+                            <div className="flex flex-wrap gap-1.5 p-2 bg-neutral-900 rounded-none min-h-12 border border-neutral-850">
+                              {group.skills.length === 0 ? (
+                                <span className="text-neutral-500 select-none p-1 text-xxs">NO CHIPS INITIALIZED. APPEND RECORD BELOW.</span>
+                              ) : (
+                                group.skills.map((skill: string, sIdx: number) => (
+                                  <span 
+                                    key={sIdx} 
+                                    className="text-[10px] bg-cyan-950/35 text-[var(--theme-accent)] px-2.5 py-0.5 rounded-none border border-cyan-900/40 flex items-center space-x-1 select-none font-bold uppercase tracking-wide"
+                                  >
+                                    <span>{skill}</span>
+                                    <button 
+                                      onClick={() => deleteSkillFromGroup(groupIdx, sIdx)}
+                                      className="hover:text-white ml-1 font-bold text-rose-400 cursor-pointer"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Quick Add Form nested */}
+                          <div className="pt-2 border-t border-neutral-900 max-w-sm">
+                            <form 
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                const inField = e.currentTarget.elements.namedItem("chipInput") as HTMLInputElement;
+                                if (inField?.value) {
+                                  addSkillToGroup(groupIdx, inField.value);
+                                  inField.value = "";
+                                }
+                              }}
+                              className="flex gap-2"
+                            >
+                              <input
+                                name="chipInput"
+                                type="text"
+                                placeholder="Add skill chip (e.g., PyTorch)..."
+                                className="p-1.5 text-xs bg-neutral-900 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none flex-grow font-mono"
+                              />
+                              <button
+                                type="submit"
+                                className="px-3 py-1.5 bg-neutral-850 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 text-xxs font-bold rounded-none uppercase tracking-wider"
+                              >
+                                + CHIP
+                              </button>
+                            </form>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ==================================================== */}
+              {/* TAB MODULE: EXPERIENCE */}
+              {/* ==================================================== */}
+              {activeTab === "experience" && (
+                <div className="flex-grow flex flex-col overflow-y-auto font-mono">
+                  {editingItemIndex === null && !isAddingNew ? (
+                    // Display Experiences listing
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center bg-neutral-900 border border-neutral-800 p-4 rounded-none">
+                        <div>
+                          <h2 className="text-white font-bold text-xs uppercase tracking-wider text-[var(--theme-accent)]">&gt;_ Professional Experience</h2>
+                          <p className="text-xxs text-neutral-400 select-none">RECORD OF PROFESSIONAL ROLES AND ENGAGEMENTS</p>
+                        </div>
+                        <button
+                          onClick={startAddExperience}
+                          className="px-3.5 py-2 bg-[var(--theme-accent)] hover:bg-cyan-400 text-neutral-955 font-bold rounded-none transition duration-200 text-xxs flex items-center space-x-1.5 cursor-pointer uppercase tracking-wider"
+                        >
+                          <Plus className="w-4 h-4 text-neutral-955 shrink-0" />
+                          <span>NEW_ROLE</span>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 pb-6">
+                        {portfolio.experience.map((exp, idx) => (
+                          <div 
+                            key={exp.id} 
+                            className="bg-neutral-950 p-4 border border-neutral-800 rounded-none hover:border-[var(--theme-accent)]/40 transition duration-200 relative flex flex-col md:flex-row justify-between items-start gap-4 font-mono"
+                          >
+                            <div className="flex-grow space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-bold text-xs text-white uppercase tracking-wider">{exp.role}</span>
+                                <span className="text-[var(--theme-accent)] font-bold text-xxs">@ {exp.company}</span>
+                              </div>
+                              <p className="text-xxs text-neutral-400">{exp.period} · {exp.location}</p>
+                              
+                              <p className="text-xxs text-neutral-300 max-w-2xl leading-relaxed pt-1.5 font-mono">
+                                {exp.highlights[0] || "No achievements logged."}
+                              </p>
+                            </div>
+
+                            <div className="flex self-end md:self-center gap-2 select-none shrink-0">
+                              <button
+                                onClick={() => startEditExperience(idx)}
+                                className="px-3 py-1.5 border border-neutral-800 bg-neutral-900 text-neutral-300 rounded-none hover:text-[var(--theme-accent)] hover:border-[var(--theme-accent)] transition duration-155 flex items-center space-x-1.5 cursor-pointer text-xxs font-bold uppercase tracking-wider"
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                                <span>EDIT</span>
+                              </button>
+                              <button
+                                onClick={() => deleteExperienceIndex(idx)}
+                                className="px-3 py-1.5 border border-red-955 bg-red-955/10 hover:bg-rose-955/35 text-red-400 rounded-none hover:border-red-900 hover:text-rose-300 transition duration-155 flex items-center space-x-1.5 cursor-pointer text-xxs font-bold uppercase tracking-wider"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                                <span>DELETE</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    // Display Experience Editor form
+                    <div className="space-y-4 pb-6 font-mono text-xs">
+                      <div className="flex justify-between items-center pb-3 border-b border-neutral-800">
+                        <span className="text-white font-bold text-xs flex items-center space-x-2 uppercase tracking-wider text-[var(--theme-accent)]">
+                          <Edit3 className="w-4 h-4 text-[var(--theme-accent)]" />
+                          <span>{isAddingNew ? "INGEST_NEW_POSITION" : `EDIT_POSITION_NODE: ${expId}`}</span>
+                        </span>
+                        <button
+                          onClick={() => { setEditingItemIndex(null); setIsAddingNew(false); }}
+                          className="px-2.5 py-1 text-xxs border border-neutral-850 rounded-none text-neutral-400 hover:text-white cursor-pointer hover:bg-neutral-800 transition uppercase tracking-wider"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">TOKEN_NODE_ID</label>
+                          <input
+                            type="text"
+                            value={expId}
+                            onChange={(e) => setExpId(e.target.value)}
+                            className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                            placeholder="e.g., lead-engineer"
+                            disabled={!isAddingNew}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">ROLE_TITLE</label>
+                          <input
+                            type="text"
+                            value={expRole}
+                            onChange={(e) => setExpRole(e.target.value)}
+                            className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                            placeholder="e.g., Senior Data Engineer"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">ORGANIZATION_NAME</label>
+                          <input
+                            type="text"
+                            value={expCompany}
+                            onChange={(e) => setExpCompany(e.target.value)}
+                            className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                            placeholder="e.g., Code Conquerors"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">DURATION_PERIOD</label>
+                          <input
+                            type="text"
+                            value={expPeriod}
+                            onChange={(e) => setExpPeriod(e.target.value)}
+                            className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                            placeholder="e.g., Jun 2025 - Present"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5 md:col-span-2">
+                          <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">LOCATION_GEOLOCATION</label>
+                          <input
+                            type="text"
+                            value={expLocation}
+                            onChange={(e) => setExpLocation(e.target.value)}
+                            className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                            placeholder="e.g., Guna, MP, India"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">ACHIEVEMENTS_BULLETS</label>
+                          <button
+                            onClick={() => setExpHighlights([...expHighlights, ""])}
+                            className="px-2.5 py-1 text-xxs border border-neutral-800 text-[var(--theme-accent)] hover:text-cyan-300 hover:bg-neutral-850 rounded-none transition uppercase tracking-wider font-bold"
+                          >
+                            + ADD_BULLET
+                          </button>
+                        </div>
+                        
+                        {expHighlights.map((hl, hlIdx) => (
+                          <div key={hlIdx} className="flex gap-2">
+                            <input
+                              type="text"
+                              value={hl}
+                              onChange={(e) => {
+                                const arr = [...expHighlights];
+                                arr[hlIdx] = e.target.value;
+                                setExpHighlights(arr);
+                              }}
+                              className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none flex-grow text-xs font-mono"
+                              placeholder="Describe quantitative metrics (e.g., Improved performance of 150+ students by 40%)..."
+                            />
+                            <button
+                              onClick={() => {
+                                const arr = expHighlights.filter((_, i) => i !== hlIdx);
+                                setExpHighlights(arr.length ? arr : [""]);
+                              }}
+                              className="px-2.5 border border-red-950 bg-red-955/20 text-red-400 rounded-none hover:bg-rose-900 hover:text-white transition flex items-center justify-center p-2.5 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="pt-2 border-t border-neutral-850 flex justify-end gap-2 text-right">
+                        <button
+                          onClick={() => { setEditingItemIndex(null); setIsAddingNew(false); }}
+                          className="px-4 py-2 bg-transparent text-neutral-400 hover:text-white rounded-none transition text-xxs font-bold uppercase tracking-wider"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={saveExperienceForm}
+                          disabled={loading}
+                          className="px-5 py-2 bg-[var(--theme-accent)] hover:bg-cyan-400 text-neutral-955 font-bold rounded-none transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-40 text-xxs uppercase tracking-wider"
+                        >
+                          <Save className="w-4 h-4 text-neutral-955 shrink-0" />
+                          <span>COMMIT_ROLE</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ==================================================== */}
+              {/* TAB MODULE: COMMUNICATIONS */}
+              {/* ==================================================== */}
+              {activeTab === "communications" && (
+                <div className="flex-grow flex flex-col overflow-y-auto font-mono">
+                  <div className="flex justify-between items-center bg-neutral-900 border border-neutral-800 p-4 rounded-none mb-4 select-none">
+                    <div>
+                      <h2 className="text-white font-bold text-xs uppercase tracking-wider text-[var(--theme-accent)]">&gt;_ Bio Narrative & Links</h2>
+                      <p className="text-xxs text-neutral-400 select-none">CONFIGURE BIOGRAPHY DETAILS AND SOCIAL PLATFORMS</p>
+                    </div>
+                    <button
+                      onClick={saveCommunicationsData}
+                      disabled={loading}
+                      className="px-3.5 py-2 bg-[var(--theme-accent)] hover:bg-cyan-400 text-neutral-955 font-bold rounded-none transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-40 text-xxs uppercase tracking-wider"
+                    >
+                      <Save className="w-4 h-4 text-neutral-955 shrink-0" />
+                      <span>COMMIT_DETAILS</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6 font-mono text-xs">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">FULL_NAME_LABEL</label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                        <input
+                          type="text"
+                          value={personalName}
+                          onChange={(e) => setPersonalName(e.target.value)}
+                          className="p-2.5 pl-10 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                          placeholder="Arunam Jain"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2 pt-2 border-b border-neutral-850 pb-1">
+                      <span className="text-[10px] text-[var(--theme-accent)] font-bold uppercase tracking-wider block">Headline Details</span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">PRIMARY_TITLE</label>
+                      <input
+                        type="text"
+                        value={personalTitle}
+                        onChange={(e) => setPersonalTitle(e.target.value)}
+                        className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                        placeholder="Data Science Coordinator & Technical Lead"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">SUBTITLE / KEYWORDS</label>
+                      <input
+                        type="text"
+                        value={personalSubtitle}
+                        onChange={(e) => setPersonalSubtitle(e.target.value)}
+                        className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                        placeholder="Python Developer & Full-Stack Analyst"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2 pt-2 border-b border-neutral-850 pb-1">
+                      <span className="text-[10px] text-[var(--theme-accent)] font-bold uppercase tracking-wider block">CONTACT & LINKS</span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">EMAIL_ADDRESS_MX</label>
+                      <input
+                        type="email"
+                        value={personalEmail}
+                        onChange={(e) => setPersonalEmail(e.target.value)}
+                        className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                        placeholder="arunamjaindps7@gmail.com"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">LOCATION_GEOLOCATION</label>
+                      <input
+                        type="text"
+                        value={personalLocation}
+                        onChange={(e) => setPersonalLocation(e.target.value)}
+                        className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                        placeholder="Guna, MP, India"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">GITHUB_PROFILE_URI</label>
+                      <input
+                        type="text"
+                        value={personalGithub}
+                        onChange={(e) => setPersonalGithub(e.target.value)}
+                        className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                        placeholder="https://github.com/ArunamJain"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">LINKEDIN_PROFILE_URI</label>
+                      <input
+                        type="text"
+                        value={personalLinkedin}
+                        onChange={(e) => setPersonalLinkedin(e.target.value)}
+                        className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                        placeholder="https://linkedin.com/in/arunam-jain"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2 pt-2 border-b border-neutral-850 pb-1">
+                      <span className="text-[10px] text-[var(--theme-accent)] font-bold uppercase tracking-wider block">BIO_NARRATIVE_LOG</span>
+                    </div>
+
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-[10px] text-neutral-400 font-bold block uppercase tracking-wider">BIOGRAPHY_SUMMARY</label>
+                      <textarea
+                        value={personalBio}
+                        onChange={(e) => setPersonalBio(e.target.value)}
+                        rows={4}
+                        className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono leading-relaxed"
+                        placeholder="Write biography summary..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ==================================================== */}
+              {/* TAB MODULE: CERTIFICATIONS */}
+              {/* ==================================================== */}
+              {activeTab === "certifications" && (
+                <div className="flex-grow flex flex-col overflow-y-auto">
+                  {editingItemIndex === null && !isAddingNew ? (
+                    // Display certifications directory
+                    <div className="space-y-4 flex-grow flex flex-col">
+                      <div className="flex justify-between items-center bg-neutral-900 border border-neutral-800 p-4 rounded-none select-none">
+                        <div>
+                          <h2 className="text-white font-mono font-semibold text-xs tracking-wider uppercase text-[var(--theme-accent)]">&gt;_ CERTIFICATION_REGISTRY</h2>
+                          <p className="text-[11px] text-neutral-400 font-mono">Manage validated certifications and credentials</p>
+                        </div>
+                        <button
+                          onClick={startAddCertification}
+                          className="px-3.5 py-2 bg-[var(--theme-accent)] hover:bg-cyan-400 text-neutral-950 font-semibold rounded-none transition duration-200 text-xs flex items-center space-x-1.5 cursor-pointer font-mono"
+                        >
+                          <Plus className="w-4 h-4 text-neutral-950 shrink-0" />
+                          <span>ADD_CREDENTIAL</span>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 pb-6">
+                        {portfolio.certifications && portfolio.certifications.length > 0 ? (
+                          portfolio.certifications.map((cert, idx) => (
+                            <div 
+                              key={idx} 
+                              className="bg-neutral-950 p-4 border border-neutral-850 rounded-none hover:border-[var(--theme-accent)]/40 transition duration-200 relative flex flex-col md:flex-row justify-between items-start gap-4 font-mono"
+                            >
+                              <div className="flex-grow space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-semibold text-xs text-white uppercase tracking-wide">&gt; {cert.name}</span>
+                                  <span className="text-[var(--theme-accent)] font-semibold text-xxs">[{cert.issuer}]</span>
+                                </div>
+                                <p className="text-[10px] text-neutral-400">ISSUED: {cert.date}</p>
+                              </div>
+
+                              <div className="flex self-end md:self-center gap-2 select-none shrink-0">
+                                <button
+                                  onClick={() => startEditCertification(idx)}
+                                  className="px-3 py-1.5 border border-neutral-800 bg-neutral-900 text-neutral-300 rounded-none hover:text-white hover:border-[var(--theme-accent)] transition duration-150 flex items-center space-x-1.5 cursor-pointer text-xs font-semibold"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>EDIT</span>
+                                </button>
+                                <button
+                                  onClick={() => deleteCertificationIndex(idx)}
+                                  className="px-3 py-1.5 border border-red-955 bg-red-955/10 hover:bg-rose-955/30 text-red-400 rounded-none hover:border-red-900 hover:text-rose-300 transition duration-150 flex items-center space-x-1.5 cursor-pointer text-xs font-semibold"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>DELETE</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-12 border border-dashed border-neutral-800 font-mono text-neutral-500 text-xs rounded-none">
+                            NO CERTIFICATIONS INDEXED. CLICK 'ADD_CREDENTIAL' TO INGEST DATA.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    // Display Certification Editor form
+                    <div className="space-y-4 pb-6 font-mono text-xs">
+                      <div className="flex justify-between items-center pb-3 border-b border-neutral-800">
+                        <span className="text-white font-semibold text-xs flex items-center space-x-2 text-[var(--theme-accent)] uppercase">
+                          {isAddingNew ? (
+                            <Award className="w-4 h-4 text-[var(--theme-accent)]" />
+                          ) : (
+                            <Edit3 className="w-4 h-4 text-[var(--theme-accent)]" />
+                          )}
+                          <span>{isAddingNew ? "Add New Certificate" : "UPDATE_CREDENTIAL_NODE"}</span>
+                        </span>
+                        <button
+                          onClick={() => { setEditingItemIndex(null); setIsAddingNew(false); }}
+                          className="px-2.5 py-1 text-xs border border-neutral-800 rounded-none text-neutral-400 hover:text-white cursor-pointer hover:bg-neutral-800/40 transition"
+                        >
+                          CANCEL
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5 col-span-2">
+                          <label className="text-[10px] text-neutral-400 font-medium block uppercase tracking-wider text-[var(--theme-accent)]">
+                            {isAddingNew ? "Title" : "Certification Name"}
+                          </label>
+                          <input
+                            type="text"
+                            value={certName}
+                            onChange={(e) => setCertName(e.target.value)}
+                            className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                            placeholder={isAddingNew ? "e.g., Data Analysis with Python" : "e.g., Python (Basic) Certificate"}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-neutral-400 font-medium block uppercase tracking-wider text-[var(--theme-accent)]">
+                            {isAddingNew ? "Issuer / Organization" : "Issuer / Authority"}
+                          </label>
+                          <input
+                            type="text"
+                            value={certIssuer}
+                            onChange={(e) => setCertIssuer(e.target.value)}
+                            className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                            placeholder={isAddingNew ? "e.g., freeCodeCamp" : "e.g., HackerRank"}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-neutral-400 font-medium block uppercase tracking-wider text-[var(--theme-accent)]">
+                            {isAddingNew ? "Issue Date / Period" : "Issue Year / Date"}
+                          </label>
+                          <input
+                            type="text"
+                            value={certDate}
+                            onChange={(e) => setCertDate(e.target.value)}
+                            className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                            placeholder={isAddingNew ? "e.g., 2026" : "e.g., 2024"}
+                          />
+                        </div>
+
+                        {/* Extra input field for Credential URL */}
+                        <div className="space-y-1.5 col-span-2">
+                          <label className="text-[10px] text-neutral-400 font-medium block uppercase tracking-wider text-[var(--theme-accent)]">Credential URL</label>
+                          <input
+                            type="text"
+                            value={certUrl}
+                            onChange={(e) => setCertUrl(e.target.value)}
+                            className="p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[var(--theme-accent)] outline-none text-white rounded-none w-full text-xs font-mono"
+                            placeholder="e.g., https://proof.freecodecamp.org/..."
+                          />
+                          <p className="text-[9px] text-neutral-500 font-mono tracking-tight leading-normal">
+                            A text field to paste the direct URL link to the certificate proof or uploaded PDF file
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-neutral-850 flex justify-end gap-2 text-right">
+                        <button
+                          onClick={() => { setEditingItemIndex(null); setIsAddingNew(false); }}
+                          className="px-4 py-2 bg-transparent text-neutral-400 hover:text-white rounded-none transition text-xs font-semibold font-mono"
+                        >
+                          CANCEL
+                        </button>
+                        <button
+                          onClick={saveCertificationForm}
+                          disabled={loading}
+                          className="px-5 py-2 bg-[var(--theme-accent)] hover:bg-cyan-400 text-neutral-950 font-semibold rounded-none transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-40 text-xs font-mono"
+                        >
+                          <Save className="w-4 h-4 text-neutral-950 shrink-0" />
+                          <span>{isAddingNew ? "Save Certificate" : "COMMIT_CREDENTIAL"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
