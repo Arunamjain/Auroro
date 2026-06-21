@@ -46,10 +46,7 @@ export async function fetchProjectsWithSkills(): Promise<ProjectItem[]> {
     const { data, error } = await supabase
       .from("projects")
       .select(`
-        id,
-        title,
-        highlights,
-        stats,
+        *,
         project_skills_map (
           skill_id,
           skills_inventory (

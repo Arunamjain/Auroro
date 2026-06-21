@@ -469,6 +469,16 @@ function verifyJWT(token: string): any {
 // Load current runtime portfolio data state
 let currentPortfolio = { ...basePortfolioData };
 
+// Safely ensure directory exists before any dynamic file writing and read validation checks
+const portfolioDir = path.dirname(PORTFOLIO_JSON_PATH);
+if (!fs.existsSync(portfolioDir)) {
+  try {
+    fs.mkdirSync(portfolioDir, { recursive: true });
+  } catch (err) {
+    console.warn("[SYS_WARNING] Failed to establish dynamic data registry directory recursively:", err);
+  }
+}
+
 if (fs.existsSync(PORTFOLIO_JSON_PATH)) {
   try {
     currentPortfolio = JSON.parse(fs.readFileSync(PORTFOLIO_JSON_PATH, "utf8"));

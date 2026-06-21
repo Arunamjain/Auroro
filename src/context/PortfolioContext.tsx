@@ -55,7 +55,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }, 70);
 
     try {
-      appendLog("SYSTEM_INITIALIZE: Launching port 3000 client framework...");
+      appendLog("SYSTEM_INITIALIZE: Launching core client framework...");
       await new Promise(resolve => setTimeout(resolve, 100));
 
       appendLog("INIT_HANDSHAKE: Handshaking secure Aurora database gateway...");

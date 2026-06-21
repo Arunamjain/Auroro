@@ -726,7 +726,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
               <div className="w-full text-center space-y-4">
                 <RefreshCw className="w-8 h-8 text-[var(--theme-accent)] animate-spin mx-auto animate-spin-slow" />
                 <p className="text-xxs text-neutral-400 font-mono tracking-widest uppercase">
-                  ESTABLISHING SECURE PORT_3000 CONSOLE LINK...
+                  ESTABLISHING SECURE GATEWAY CONSOLE LINK...
                 </p>
                 <div className="h-1 w-full bg-neutral-800 rounded-none overflow-hidden">
                   <div className="h-full bg-[var(--theme-accent)]" style={{ width: "70%" }} />

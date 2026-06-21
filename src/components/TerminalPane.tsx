@@ -182,17 +182,18 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
         setHistory((prev) => [
           ...prev,
           { text: "[SUPABASE_OK] Credentials authenticated successfully via client SDK gateway.", type: "heading" },
-          { text: "[SESSION_STABLE] Syncing secure authorization cookie tokens on Port 3000...", type: "system" }
+          { text: "[SESSION_STABLE] Syncing secure authorization cookie tokens with gateway interface...", type: "system" }
         ]);
 
         // 2. Synchronize server session by performing local loop login endpoint request (secures HttpOnly cookie)
-        const csrfRes = await fetch("/api/verify-admin", { method: "POST" });
+        const originUrl = window.location.origin;
+        const csrfRes = await fetch(`${originUrl}/api/verify-admin`, { method: "POST" });
         if (!csrfRes.ok) {
-          throw new Error("Port 3000 authentication pipeline bypassed or closed.");
+          throw new Error("Active gateway authentication pipeline bypassed or closed.");
         }
         const csrfData = await csrfRes.json();
 
-        const loginRes = await fetch("/api/admin/login", {
+        const loginRes = await fetch(`${originUrl}/api/admin/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ password: cmd, csrfToken: csrfData.csrfToken })

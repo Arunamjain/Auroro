@@ -83,7 +83,7 @@ export default function TerminalLoader({ onComplete }: TerminalLoaderProps) {
           </div>
           <div className="flex items-center space-x-1.5 text-[8px] text-neutral-500 font-bold">
             <span className="animate-pulse text-cyan-400">•</span>
-            <span>PORT_3000 // CRYPT_SSL</span>
+            <span>PORT_ACTIVE // CRYPT_SSL</span>
           </div>
         </div>
 

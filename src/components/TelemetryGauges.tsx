@@ -41,7 +41,7 @@ export default function TelemetryGauges() {
       <div>
         <div className="flex justify-between text-[9px] text-white/40 mb-1.5 matches-select-none">
           <span className="font-bold">NET_TRAFFIC_WAVE</span>
-          <span className="text-[var(--theme-accent)] uppercase font-bold">AURORA_GATEWAY_3000</span>
+          <span className="text-[var(--theme-accent)] uppercase font-bold">AURORA_SUITE_GATEWAY</span>
         </div>
         
         {/* Render animated SVG Wave */}
