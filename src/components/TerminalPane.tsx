@@ -186,14 +186,13 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
         ]);
 
         // 2. Synchronize server session by performing local loop login endpoint request (secures HttpOnly cookie)
-        const originUrl = window.location.origin;
-        const csrfRes = await fetch(`${originUrl}/api/verify-admin`, { method: "POST" });
+        const csrfRes = await fetch("/api/verify-admin", { method: "POST" });
         if (!csrfRes.ok) {
           throw new Error("Active gateway authentication pipeline bypassed or closed.");
         }
         const csrfData = await csrfRes.json();
 
-        const loginRes = await fetch(`${originUrl}/api/admin/login`, {
+        const loginRes = await fetch("/api/admin/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ password: cmd, csrfToken: csrfData.csrfToken })
