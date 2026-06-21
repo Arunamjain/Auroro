@@ -159,12 +159,5 @@
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
 }
 
-/* Custom Global cursor exclusion to support retro screen space terminal cursor */
-html, body, a, button, input, textarea, select, [role="button"], .cursor-pointer {
-  cursor: none !important;
-}
 
-@keyframes terminal-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.15; }
-}
+

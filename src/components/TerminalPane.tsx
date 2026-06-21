@@ -12,6 +12,16 @@ interface TerminalPaneProps {
   onAdminTrigger?: () => void;
 }
 
+const isSudoAdminIntent = (arg: string | null): boolean => {
+  if (!arg) return false;
+  const normalized = arg.trim().toLowerCase().replace(/\s+/g, " ");
+  
+  // Loose matching using Regular Expression for typo resilience (e.g., "acces", "acess", "aces", etc.)
+  // and matching trailing argument flags cleanly
+  const accessPattern = /^(acc?es?s?|ac?ces?s?)([\s\-_]+(a|adm|admin|--admin|-admin|--adm|-a))?$/;
+  return accessPattern.test(normalized);
+};
+
 export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
   const { portfolio: portfolioData } = usePortfolio();
   const [showMatrix, setShowMatrix] = useState(false);
@@ -426,7 +436,7 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
         break;
 
       case "sudo":
-        if (argument === "access --admin" || argument === "access" || argument === "access -a" || argument === "access -admin") {
+        if (isSudoAdminIntent(argument)) {
           updatedHistory.push(
             { text: "[HANDSHAKE_INIT] Directing access command to security shield on standard ports...", type: "system" },
             { text: "ENTER ADMIN ACCESS CODE:", type: "heading" }
