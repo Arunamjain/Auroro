@@ -46,36 +46,42 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
     }
   }, [history]);
 
-  // Query Supabase backend status on load to report connection diagnostics
+  // Query Supabase backend status on load to report connection diagnostics entirely on the client side
   useEffect(() => {
     const fetchSupabaseStatus = async () => {
       try {
-        const res = await fetch("/api/supabase/status");
-        if (res.ok) {
-          const status = await res.json();
-          if (status.connected) {
+        const url = (import.meta as any).env.VITE_SUPABASE_URL;
+        const anonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+        const configured = !!url && !!anonKey && !url.includes("placeholder");
+
+        if (configured) {
+          const supabase = getSupabaseClient();
+          // Perform a fast lightweight query to verify the connection
+          const { error } = await supabase.from("projects").select("id").limit(1);
+
+          if (!error) {
             setHistory((prev) => [
               ...prev,
-              { text: `[SUPABASE_OK] Live relational DB connected successfully! (Bridge: ${status.dbUrl})`, type: "heading" },
+              { text: `[SUPABASE_OK] Live relational DB connected successfully!`, type: "heading" },
               { text: "Dynamic reading/writing vectors active for 'projects' and 'experiences' catalogues.", type: "system" },
-              { text: "", type: "output" }
-            ]);
-          } else if (status.configured) {
-            setHistory((prev) => [
-              ...prev,
-              { text: "[SUPABASE_ERR] Credentials detected but diagnostic handshaking failed!", type: "error" },
-              { text: `Details: ${status.error}`, type: "error" },
-              { text: "Ensure your tables are created in Supabase. You can run 'Seed Supabase DB' in your admin panel once logged in to synchronize them.", type: "system" },
               { text: "", type: "output" }
             ]);
           } else {
             setHistory((prev) => [
               ...prev,
-              { text: "[SUPABASE_STANDBY] Static JSON fallback active. Relational database offline.", type: "system" },
-              { text: "Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your env configurations via the Settings menu to activate real-time Supabase sync.", type: "system" },
+              { text: "[SUPABASE_ERR] Credentials detected but diagnostic handshaking failed!", type: "error" },
+              { text: `Details: ${error.message}`, type: "error" },
+              { text: "Ensure your tables are created in Supabase. You can run 'Seed Supabase DB' in your admin panel once logged in to synchronize them.", type: "system" },
               { text: "", type: "output" }
             ]);
           }
+        } else {
+          setHistory((prev) => [
+            ...prev,
+            { text: "[SUPABASE_STANDBY] Static JSON fallback active. Relational database offline.", type: "system" },
+            { text: "Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your env configurations via the Settings menu to activate real-time Supabase sync.", type: "system" },
+            { text: "", type: "output" }
+          ]);
         }
       } catch (e: any) {
         console.warn("Could not retrieve Supabase connection diagnostics status on boot:", e);
@@ -182,49 +188,22 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
         setHistory((prev) => [
           ...prev,
           { text: "[SUPABASE_OK] Credentials authenticated successfully via client SDK gateway.", type: "heading" },
-          { text: "[SESSION_STABLE] Syncing secure authorization cookie tokens with gateway interface...", type: "system" }
+          { text: "[SESSION_STABLE] Client-side Supabase session active and saved to local state.", type: "system" },
+          { text: "[SYSTEM_DECK_UNLOCKED] Authorized to access Central Matrix Deck.", type: "heading" },
+          { text: "Bootloader completed. Opening secure console window...", type: "system" },
+          { text: "", type: "output" }
         ]);
 
-        // 2. Synchronize server session by performing local loop login endpoint request (secures HttpOnly cookie)
-        const csrfRes = await fetch("/api/verify-admin", { method: "POST" });
-        if (!csrfRes.ok) {
-          throw new Error("Active gateway authentication pipeline bypassed or closed.");
-        }
-        const csrfData = await csrfRes.json();
-
-        const loginRes = await fetch("/api/admin/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: cmd, csrfToken: csrfData.csrfToken })
-        });
-
-        const loginData = await loginRes.json();
-
-        if (loginRes.ok) {
-          setHistory((prev) => [
-            ...prev,
-            { text: `[SYSTEM_DECK_UNLOCKED] ${loginData.message || "Authorized to access Central Matrix Deck."}`, type: "heading" },
-            { text: "Bootloader completed. Opening secure console window...", type: "system" },
-            { text: "", type: "output" }
-          ]);
-
-          // Open Central Dashboard in Authenticated mode immediately
-          if (onAdminTrigger) {
-            setTimeout(() => {
-              onAdminTrigger();
-            }, 600);
-          }
-        } else {
-          setHistory((prev) => [
-            ...prev,
-            { text: `ERR: Platform system login failed: ${loginData.error}`, type: "error" },
-            { text: "", type: "output" }
-          ]);
+        // Open Central Dashboard in Authenticated mode immediately
+        if (onAdminTrigger) {
+          setTimeout(() => {
+            onAdminTrigger();
+          }, 600);
         }
       } catch (err: any) {
         setHistory((prev) => [
           ...prev,
-          { text: `ERR: Verification route failed: ${err.message || err}`, type: "error" },
+          { text: `ERR: Direct client-side verification exception: ${err.message || err}`, type: "error" },
           { text: "", type: "output" }
         ]);
       } finally {

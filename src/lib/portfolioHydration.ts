@@ -42,11 +42,16 @@ export async function fetchProjectsWithSkills(): Promise<ProjectItem[]> {
   }
 
   try {
-    // Single request join query fetching everything in a single trip
+    // Single request join query fetching everything in a single trip, selecting explicit columns to ignore the missing highlights schema column
     const { data, error } = await supabase
       .from("projects")
       .select(`
-        *,
+        id,
+        title,
+        subtitle,
+        stats,
+        description,
+        created_at,
         project_skills_map (
           skill_id,
           skills_inventory (
