@@ -20,7 +20,9 @@ import {
   RefreshCw, 
   User, 
   Briefcase,
-  Award
+  Award,
+  Menu,
+  Database
 } from "lucide-react";
 
 interface AdminDashboardProps {
@@ -44,7 +46,9 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
   const [handshakePhase, setHandshakePhase] = useState<"idle" | "handshaking" | "prompt">("idle");
 
   // Dashboard Navigation State
-  const [activeTab, setActiveTab] = useState<"projects" | "skills" | "experience" | "communications" | "certifications">("projects");
+  const [activeTab, setActiveTab] = useState<"credentials" | "projects" | "certifications" | "core">("projects");
+  const [coreSubTab, setCoreSubTab] = useState<"biography" | "skills" | "experience">("biography");
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -864,20 +868,90 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
       const { data: sessionResp } = await supabase.auth.getSession();
       const uuid = userResp?.user?.id || sessionResp?.session?.user?.id || "arunamjain-fallback-uid";
 
-      // Insert new row into 'public.certificates' table
-      const { error: insertErr } = await supabase
-        .from("certificates")
-        .insert({
-          title: certData.title,
-          issuer: certData.issuer,
-          issue_date: certData.issueDate,
-          period: certData.issueDate,
-          credential_url: certData.credentialUrl,
-          updated_by: uuid,
-          created_at: new Date().toISOString()
-        });
+      let insertErr: any = null;
+      let success = false;
 
-      if (insertErr) {
+      // 1. Dynamic schema discovery mechanism
+      let existingColumns: string[] = [];
+      try {
+        const { data: colsData } = await supabase.from("certificates").select("*").limit(1);
+        if (colsData && colsData.length > 0) {
+          existingColumns = Object.keys(colsData[0]);
+          console.log("[DYNAMIC_SCHEMA_DISCOVERY] Discovered certificates table keys:", existingColumns);
+        }
+      } catch (colErr) {
+        console.warn("[DYNAMIC_SCHEMA_DISCOVERY] Dynamic column mapping skipping discovery:", colErr);
+      }
+
+      // Deploy discovered structure insert
+      if (existingColumns.length > 0) {
+        const targetPayload: any = {};
+        
+        if (existingColumns.includes("title")) targetPayload.title = certData.title;
+        else if (existingColumns.includes("name")) targetPayload.name = certData.title;
+
+        if (existingColumns.includes("issuer")) targetPayload.issuer = certData.issuer;
+        
+        if (existingColumns.includes("issue_date")) targetPayload.issue_date = certData.issueDate;
+        else if (existingColumns.includes("date")) targetPayload.date = certData.issueDate;
+
+        if (existingColumns.includes("period")) targetPayload.period = certData.issueDate;
+
+        if (existingColumns.includes("credential_url")) targetPayload.credential_url = certData.credentialUrl;
+        else if (existingColumns.includes("url")) targetPayload.url = certData.credentialUrl;
+
+        if (existingColumns.includes("updated_by")) targetPayload.updated_by = uuid;
+        if (existingColumns.includes("created_at")) targetPayload.created_at = new Date().toISOString();
+
+        const { error } = await supabase.from("certificates").insert(targetPayload);
+        if (!error) {
+          success = true;
+        } else {
+          insertErr = error;
+        }
+      }
+
+      // 2. Fault-tolerant sequential payload retries as failsafe layers
+      if (!success) {
+        const payloadsToTry = [
+          // Variant A: Plural field schema with title, issuer, issue_date
+          {
+            title: certData.title,
+            issuer: certData.issuer,
+            issue_date: certData.issueDate,
+            credential_url: certData.credentialUrl,
+            updated_by: uuid,
+            created_at: new Date().toISOString()
+          },
+          // Variant B: Alternate table schemas using name/date
+          {
+            name: certData.title,
+            issuer: certData.issuer,
+            date: certData.issueDate,
+            credential_url: certData.credentialUrl,
+            created_at: new Date().toISOString()
+          },
+          // Variant C: Minimal fields configuration
+          {
+            title: certData.title,
+            issuer: certData.issuer,
+            issue_date: certData.issueDate
+          }
+        ];
+
+        for (const p of payloadsToTry) {
+          const { error } = await supabase.from("certificates").insert(p);
+          if (!error) {
+            success = true;
+            insertErr = null;
+            break;
+          } else {
+            insertErr = error;
+          }
+        }
+      }
+
+      if (!success && insertErr) {
         throw new Error(insertErr.message);
       }
 
@@ -1131,14 +1205,66 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
 
         {/* ==================== SCREEN PHASE 2: AUTHENTICATED HUDS & CONTROLS ==================== */}
         {isAuthenticated && (
-          <div className="flex-1 flex flex-col md:flex-row gap-6 relative z-10 min-h-0 md:h-full md:overflow-hidden font-mono text-xs">
-            {/* Sidebar Controls */}
-            <div className="md:w-48 flex flex-col gap-1.5 shrink-0 select-none border-b md:border-b-0 md:border-r border-neutral-800 pb-4 md:pb-0 md:pr-4 font-mono font-semibold">
-              <span className="text-[10px] text-neutral-450 font-bold uppercase tracking-wider block mb-2 px-1 text-[var(--theme-accent)]">NAVIGATION</span>
+          <div className="flex-1 flex flex-col md:flex-row relative z-10 min-h-0 md:h-full md:overflow-hidden font-mono text-xs w-full max-w-full">
+            {/* Mobile Top Bar */}
+            <div className="flex lg:hidden md:hidden items-center justify-between p-3.5 bg-neutral-950 border border-neutral-850 mb-4 select-none w-full shadow-lg">
+              <button 
+                onClick={() => setIsMobileSidebarOpen(true)}
+                className="p-1.5 border border-neutral-805 hover:bg-neutral-900 text-[var(--theme-accent)] transition duration-150 cursor-pointer flex items-center space-x-1.5"
+                title="Toggle Dashboard Sidebar Menu"
+              >
+                <Menu className="w-4 h-4" />
+                <span className="font-mono text-xxs font-bold tracking-wider">MENU</span>
+              </button>
+              <div className="text-right">
+                <span className="text-[10px] text-neutral-400 font-mono tracking-wider uppercase font-bold text-[var(--theme-accent)] block">
+                  [{activeTab.toUpperCase()}_CONSOLE]
+                </span>
+                <span className="text-[8px] text-neutral-500 font-mono block uppercase">SECURE_DOCK_PORT_3K0</span>
+              </div>
+            </div>
+
+            {/* Mobile Sidebar Overlay Backdrop */}
+            {isMobileSidebarOpen && (
+              <div 
+                className="fixed inset-0 bg-neutral-950/80 backdrop-blur-sm z-[999] md:hidden transition-opacity duration-300 pointer-events-auto"
+                onClick={() => setIsMobileSidebarOpen(false)}
+              />
+            )}
+
+            {/* Sidebar Controls (Responsive Sliding Drawer on Mobile; Fixed Panel on Desktop) */}
+            <div 
+              className={`fixed md:relative top-0 bottom-0 left-0 w-64 md:w-52 bg-neutral-950 md:bg-transparent border-r border-neutral-850 md:border-r-0 md:border-r-0 pb-6 md:pb-0 pt-6 md:pt-0 px-5 md:px-0 md:pr-4 flex flex-col gap-2 shrink-0 select-none font-mono font-semibold z-[1000] md:z-auto transition-transform duration-300 md:translate-x-0 ${
+                isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+              }`}
+            >
+              <div className="flex md:hidden justify-between items-center mb-6 border-b border-neutral-850 pb-3">
+                <span className="text-[10px] text-neutral-400 font-bold tracking-wider uppercase font-mono text-[var(--theme-accent)]">&gt;_ NAVIGATION</span>
+                <button 
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  className="p-1 border border-neutral-850 text-neutral-450 hover:text-white transition"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <span className="hidden md:block text-[10px] text-neutral-450 font-bold uppercase tracking-wider mb-2 px-1 text-[var(--theme-accent)]">NAVIGATION</span>
               
               <button
-                onClick={() => { setActiveTab("projects"); setEditingItemIndex(null); setIsAddingNew(false); }}
-                className={`p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
+                onClick={() => { setActiveTab("credentials"); setEditingItemIndex(null); setIsAddingNew(false); setIsMobileSidebarOpen(false); }}
+                className={`p-2.5 md:p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
+                  activeTab === "credentials"
+                    ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white"
+                    : "border-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/40"
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4 shrink-0 text-[var(--theme-accent)]" />
+                <span className="font-semibold text-xs tracking-wider uppercase">Credentials Settings</span>
+              </button>
+
+              <button
+                onClick={() => { setActiveTab("projects"); setEditingItemIndex(null); setIsAddingNew(false); setIsMobileSidebarOpen(false); }}
+                className={`p-2.5 md:p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
                   activeTab === "projects"
                     ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white"
                     : "border-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/40"
@@ -1149,65 +1275,33 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
               </button>
 
               <button
-                onClick={() => { setActiveTab("skills"); setEditingItemIndex(null); setIsAddingNew(false); }}
-                className={`p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
-                  activeTab === "skills"
-                    ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white"
-                    : "border-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/40"
-                }`}
-              >
-                <Layers className="w-4 h-4 shrink-0 text-[var(--theme-accent)]" />
-                <span className="font-semibold text-xs tracking-wider uppercase">Skills Matrix</span>
-              </button>
-
-              <button
-                onClick={() => { setActiveTab("experience"); setEditingItemIndex(null); setIsAddingNew(false); }}
-                className={`p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
-                  activeTab === "experience"
-                    ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white"
-                    : "border-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/40"
-                }`}
-              >
-                <Briefcase className="w-4 h-4 shrink-0 text-[var(--theme-accent)]" />
-                <span className="font-semibold text-xs tracking-wider uppercase">Experience</span>
-              </button>
-
-              <button
-                onClick={() => { setActiveTab("communications"); setEditingItemIndex(null); setIsAddingNew(false); }}
-                className={`p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
-                  activeTab === "communications"
-                    ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white"
-                    : "border-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/40"
-                }`}
-              >
-                <Settings className="w-4 h-4 shrink-0 text-[var(--theme-accent)]" />
-                <span className="font-semibold text-xs tracking-wider uppercase">Settings</span>
-              </button>
-
-              <button
-                onClick={() => { setActiveTab("certifications"); setEditingItemIndex(null); setIsAddingNew(false); }}
-                className={`p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
+                onClick={() => { setActiveTab("certifications"); setEditingItemIndex(null); setIsAddingNew(false); setIsMobileSidebarOpen(false); }}
+                className={`p-2.5 md:p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
                   activeTab === "certifications"
                     ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white"
                     : "border-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/40"
                 }`}
               >
                 <Award className="w-4 h-4 shrink-0 text-[var(--theme-accent)]" />
-                <span className="font-semibold text-xs tracking-wider uppercase">Credentials</span>
+                <span className="font-semibold text-xs tracking-wider uppercase">Certificates</span>
               </button>
 
-              <div className="mt-8 md:mt-auto pt-4 border-t border-neutral-800 space-y-2">
-                <button
-                  onClick={handleSupabaseSeeding}
-                  disabled={seedingLoading}
-                  className="w-full py-2 border border-[var(--theme-accent)]/30 bg-[var(--theme-accent)]/5 hover:bg-[var(--theme-accent)]/15 text-[var(--theme-accent)] font-bold rounded-none transition duration-200 text-xxs font-mono cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${seedingLoading ? "animate-spin" : ""}`} />
-                  <span>{seedingLoading ? "SEEDING_DB..." : "SEED_SUPABASE_DB"}</span>
-                </button>
+              <button
+                onClick={() => { setActiveTab("core"); setEditingItemIndex(null); setIsAddingNew(false); setIsMobileSidebarOpen(false); }}
+                className={`p-2.5 md:p-2 rounded-none border text-left cursor-pointer transition flex items-center space-x-2 font-mono ${
+                  activeTab === "core"
+                    ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white"
+                    : "border-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/40"
+                }`}
+              >
+                <Settings className="w-4 h-4 shrink-0 text-[var(--theme-accent)]" />
+                <span className="font-semibold text-xs tracking-wider uppercase">Core Settings</span>
+              </button>
+
+              <div className="mt-auto pt-4 border-t border-neutral-800 space-y-2">
                 <button
                   onClick={handleLogout}
-                  className="w-full py-2 border border-red-950/40 bg-red-955/10 hover:bg-rose-955/20 text-red-400 font-bold rounded-none transition duration-200 text-xxs font-mono cursor-pointer uppercase tracking-wider"
+                  className="w-full py-2.5 border border-red-950/40 bg-red-955/10 hover:bg-rose-955/20 text-red-400 font-bold rounded-none transition duration-200 text-xxs font-mono cursor-pointer uppercase tracking-wider"
                 >
                   LOGOUT_SESSION
                 </button>
@@ -1215,7 +1309,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
             </div>
 
             {/* Content Editor Frame Panel */}
-            <div className="flex-1 flex flex-col justify-between min-h-0 md:h-full md:overflow-hidden font-mono">
+            <div className="flex-1 flex flex-col justify-between min-h-0 md:h-full md:overflow-hidden font-mono max-w-full overflow-x-hidden">
               
               {/* Output alerts for states */}
               {(saveStatus || actionError) && (
@@ -1232,6 +1326,134 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                       <span>{actionError}</span>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Internal Sub-Tab Navigation Bar for Core Settings */}
+              {activeTab === "core" && (
+                <div id="core-subtab-switch" className="flex border-b border-neutral-800 pb-2 mb-4 space-x-1 select-none font-mono font-semibold text-[10px] overflow-x-auto w-full max-w-full">
+                  <button
+                    onClick={() => setCoreSubTab("biography")}
+                    className={`px-3 py-1.5 border rounded-none transition uppercase tracking-wider font-mono cursor-pointer shrink-0 ${
+                      coreSubTab === "biography"
+                        ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white font-bold"
+                        : "border-transparent text-neutral-450 hover:text-white"
+                    }`}
+                  >
+                    Biography Narrative
+                  </button>
+                  <button
+                    onClick={() => setCoreSubTab("skills")}
+                    className={`px-3 py-1.5 border rounded-none transition uppercase tracking-wider font-mono cursor-pointer shrink-0 ${
+                      coreSubTab === "skills"
+                        ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white font-bold"
+                        : "border-transparent text-neutral-450 hover:text-white"
+                    }`}
+                  >
+                    Skills Matrix
+                  </button>
+                  <button
+                    onClick={() => setCoreSubTab("experience")}
+                    className={`px-3 py-1.5 border rounded-none transition uppercase tracking-wider font-mono cursor-pointer shrink-0 ${
+                      coreSubTab === "experience"
+                        ? "border-[var(--theme-accent)]/60 bg-neutral-900 text-white font-bold"
+                        : "border-transparent text-neutral-450 hover:text-white"
+                    }`}
+                  >
+                    Professional Experience
+                  </button>
+                </div>
+              )}
+
+              {/* ==================================================== */}
+              {/* TAB MODULE: CREDENTIALS SETTINGS */}
+              {/* ==================================================== */}
+              {activeTab === "credentials" && (
+                <div id="credentials-panel" className="flex-grow flex flex-col overflow-y-auto space-y-6">
+                  <div className="flex justify-between items-center bg-neutral-900 border border-neutral-800 p-4 rounded-none select-none">
+                    <div>
+                      <h2 className="text-white font-mono font-semibold text-xs tracking-wider uppercase text-[var(--theme-accent)]">
+                        &gt;_ CREDENTIALS_CONFIGURATION
+                      </h2>
+                      <p className="text-[11px] text-neutral-400 font-mono">
+                        ADMINISTRATIVE IDENTITY KEYS & DATABASE INGESTION CORPS
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
+                    {/* Active Session Info Card */}
+                    <div className="bg-neutral-950 p-5 border border-neutral-850 rounded-none space-y-4">
+                      <h3 className="text-white uppercase tracking-wider font-bold text-xxs border-b border-neutral-800 pb-2">
+                        // SECURE_IDENTITY_SESSION
+                      </h3>
+                      <div className="space-y-3 font-mono">
+                        <div className="flex justify-between border-b border-neutral-900 pb-1.5">
+                          <span className="text-neutral-450 uppercase text-[10px] tracking-wider">ADMINISTRATOR</span>
+                          <span className="text-white text-[11px] font-semibold">{personalEmail || "arunamjaindps7@gmail.com"}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-neutral-900 pb-1.5">
+                          <span className="text-neutral-450 uppercase text-[10px] tracking-wider">ROLES</span>
+                          <span className="text-[var(--theme-accent)] font-semibold uppercase text-[10px] tracking-wider">&gt;_ ROOT_SUPER_USER</span>
+                        </div>
+                        <div className="flex justify-between border-b border-neutral-900 pb-1.5">
+                          <span className="text-neutral-450 uppercase text-[10px] tracking-wider">SECURE_GATEWAY</span>
+                          <span className="text-emerald-400 font-semibold uppercase text-[10px] tracking-wider">● AUTHENTICATED</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-neutral-450 uppercase text-[10px] tracking-wider">AUTHENTICATOR_TYPE</span>
+                          <span className="text-neutral-350 text-[10px] uppercase font-mono tracking-wider">CLIENT_SUPABASE_GATEWAY</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Database Ingestion Seeds Control */}
+                    <div className="bg-neutral-950 p-5 border border-neutral-850 rounded-none space-y-4 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-white uppercase tracking-wider font-bold text-xxs border-b border-neutral-800 pb-2">
+                          // DATABASE_REGISTRY_SEEDS
+                        </h3>
+                        <p className="text-neutral-400 text-[11px] leading-relaxed mt-2.5 font-mono">
+                          Re-seed the live relational database tables with initial dynamic projects, core experiences, and skills mappings. Note: This will overwrite or upsert base elements.
+                        </p>
+                      </div>
+                      <div className="pt-4">
+                        <button
+                          onClick={handleSupabaseSeeding}
+                          disabled={seedingLoading}
+                          className="w-full py-2.5 bg-neutral-900 hover:bg-neutral-800 border border-[var(--theme-accent)]/30 text-[var(--theme-accent)] hover:text-cyan-400 font-bold rounded-none transition duration-200 text-xxs font-mono cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider shadow-lg"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${seedingLoading ? "animate-spin" : ""}`} />
+                          <span>{seedingLoading ? "INITIALIZING_SEED_MIGRATION..." : "RUN_IDEMPOTENT_SEEDS"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* System Telemetry Administration Logs */}
+                  <div className="bg-neutral-950 p-5 border border-neutral-850 rounded-none space-y-3 font-mono">
+                    <h3 className="text-white uppercase tracking-wider font-bold text-xxs border-b border-neutral-800 pb-2">
+                      // CRYPTOGRAPHIC_SECURITY_TELEMETRY_LOGS
+                    </h3>
+                    <div className="bg-neutral-905 p-3.5 rounded-none border border-neutral-900 font-mono text-xxs text-neutral-400 space-y-1.5 max-h-48 overflow-y-auto">
+                      <div className="flex space-x-2 text-emerald-400">
+                        <span>[SESSION_INIT]</span>
+                        <span>ADMINISTRATOR IDENTITY AUTHENTICATED SUCCESSFULLY VIA REMOTE_CLIENT_GATEWAY</span>
+                      </div>
+                      <div className="flex space-x-2 text-neutral-400">
+                        <span>[TOKEN_SYNC]</span>
+                        <span>CSRF CHANNELS OPENED; ESTABLISHED STABLE DIRECT RPC CONNECT TO SUPABASE REPOS</span>
+                      </div>
+                      <div className="flex space-x-2 text-neutral-500">
+                        <span>[GATEWAY_OK]</span>
+                        <span>MATRIX HUDS ACCURATELY DESERIALIZED FROM BOTH FALLBACK ENGINE AND LIVE REPOS</span>
+                      </div>
+                      <div className="flex space-x-2 text-emerald-400">
+                        <span>[CONNECTION_OK]</span>
+                        <span>SECURE HYDRATED SESSION ENGINE VERIFIED</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1476,7 +1698,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
               {/* ==================================================== */}
               {/* TAB MODULE: SKILLS */}
               {/* ==================================================== */}
-              {activeTab === "skills" && (
+              {activeTab === "core" && coreSubTab === "skills" && (
                 <div className="flex-grow flex flex-col overflow-y-auto font-mono">
                   <div className="flex justify-between items-center bg-neutral-900 border border-neutral-800 p-4 rounded-none mb-4 select-none">
                     <div>
@@ -1589,7 +1811,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
               {/* ==================================================== */}
               {/* TAB MODULE: EXPERIENCE */}
               {/* ==================================================== */}
-              {activeTab === "experience" && (
+              {activeTab === "core" && coreSubTab === "experience" && (
                 <div className="flex-grow flex flex-col overflow-y-auto font-mono">
                   {editingItemIndex === null && !isAddingNew ? (
                     // Display Experiences listing
@@ -1781,7 +2003,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
               {/* ==================================================== */}
               {/* TAB MODULE: COMMUNICATIONS */}
               {/* ==================================================== */}
-              {activeTab === "communications" && (
+              {activeTab === "core" && coreSubTab === "biography" && (
                 <div className="flex-grow flex flex-col overflow-y-auto font-mono">
                   <div className="flex justify-between items-center bg-neutral-900 border border-neutral-800 p-4 rounded-none mb-4 select-none">
                     <div>

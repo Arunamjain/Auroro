@@ -42,28 +42,14 @@ export async function fetchProjectsWithSkills(): Promise<ProjectItem[]> {
   }
 
   try {
-    // Single request join query fetching everything in a single trip, selecting explicit columns to ignore the missing highlights schema column
+    // Single request query fetching the plain projects flat structure, avoiding problematic nested relationship selects
     const { data, error } = await supabase
       .from("projects")
-      .select(`
-        id,
-        title,
-        subtitle,
-        stats,
-        description,
-        created_at,
-        project_skills_map (
-          skill_id,
-          skills_inventory (
-            id,
-            skill_name
-          )
-        )
-      `)
+      .select("*")
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("[HYDRATION] Supabase Projects Join fetch error:", error.message);
+      console.error("[HYDRATION] Supabase Projects fetch error:", error.message);
       return [];
     }
 
@@ -71,49 +57,43 @@ export async function fetchProjectsWithSkills(): Promise<ProjectItem[]> {
       return [];
     }
 
-    // CRITICAL DATA DE-NESTING LAYER
+    // Attempt to query projects skills map separately to prevent join errors
+    let skillsMap: any[] = [];
+    try {
+      const { data: mapData, error: mapErr } = await supabase
+        .from("project_skills_map")
+        .select("project_id, skill_name, skills_inventory(id, skill_name)");
+      if (!mapErr && mapData) {
+        skillsMap = mapData;
+      }
+    } catch (e: any) {
+      console.warn("[HYDRATION] Non-blocking projects skills mapping fetch skipped:", e.message || e);
+    }
+
+    // CRITICAL DATA DE-NESTING LAYER WITH SAFETIES
     return data.map((proj: any): ProjectItem => {
-      const p = proj as SupabaseProjectJointResponse;
-      
-      // A. Extract and flatten mapped skills junction array
+      // Extract tech tags using matches from separate mapping list
       let techTags: string[] = [];
-      if (p.project_skills_map && Array.isArray(p.project_skills_map)) {
-        techTags = p.project_skills_map
-          .map((mapItem: SupabaseProjectSkillsMapJoint) => {
-            if (!mapItem) return null;
-            // Case 1: skill_name resides directly on the junction table itself
-            if (mapItem.skill_name) {
-              return mapItem.skill_name;
-            }
-            // Case 2: skill_name or name resides on skills_inventory join target
-            if (mapItem.skills_inventory) {
-              const invList = Array.isArray(mapItem.skills_inventory)
-                ? mapItem.skills_inventory
-                : [mapItem.skills_inventory];
-              
-              const matchedTag = invList
-                .map(inv => inv?.name || inv?.skill_name)
-                .find(name => !!name);
-                
-              return matchedTag || null;
-            }
-            return null;
-          })
-          .filter((tag): tag is string => typeof tag === "string" && tag.trim() !== "");
+      const matches = skillsMap.filter((m: any) => m.project_id === proj.id);
+      if (matches.length > 0) {
+        techTags = matches.map((m: any) => {
+          if (m.skill_name) return m.skill_name;
+          const sObj = Array.isArray(m.skills_inventory) ? m.skills_inventory[0] : m.skills_inventory;
+          return sObj ? (sObj.skill_name || sObj.name || "") : "";
+        }).filter(Boolean);
       }
 
       // Fallback fallback: If tags still empty, check project's native fields
       if (techTags.length === 0) {
-        const rawProj = p as any;
-        if (Array.isArray(rawProj.tech)) {
-          techTags = rawProj.tech;
-        } else if (typeof rawProj.tech_string === "string" && rawProj.tech_string) {
-          techTags = rawProj.tech_string.split(",").map((s: string) => s.trim()).filter(Boolean);
-        } else if (typeof rawProj.tech === "string" && rawProj.tech) {
+        if (Array.isArray(proj.tech)) {
+          techTags = proj.tech;
+        } else if (proj.tech_string) {
+          techTags = proj.tech_string.split(",").map((s: string) => s.trim()).filter(Boolean);
+        } else if (proj.tech && typeof proj.tech === "string") {
           try {
-            techTags = JSON.parse(rawProj.tech);
+            techTags = JSON.parse(proj.tech);
           } catch {
-            techTags = rawProj.tech.split(",").map((s: string) => s.trim()).filter(Boolean);
+            techTags = proj.tech.split(",").map((s: string) => s.trim()).filter(Boolean);
           }
         }
       }
@@ -125,7 +105,7 @@ export async function fetchProjectsWithSkills(): Promise<ProjectItem[]> {
 
       // B. Structure & decode description highlights (handles JSON, arrays, text/piped)
       let parsedHighlights: string[] = [];
-      const rawHighlights = p.highlights || (p as any).description || [];
+      const rawHighlights = proj.highlights || proj.description || [];
       if (Array.isArray(rawHighlights)) {
         parsedHighlights = rawHighlights;
       } else if (typeof rawHighlights === "string") {
@@ -144,7 +124,7 @@ export async function fetchProjectsWithSkills(): Promise<ProjectItem[]> {
 
       // C. Structure & decode metrics stats
       let parsedStats: { label: string; value: string }[] = [];
-      const rawStats = p.stats || [];
+      const rawStats = proj.stats || [];
       if (Array.isArray(rawStats)) {
         parsedStats = rawStats.map((item: any) => ({
           label: String(item.label || item.name || ""),
@@ -159,9 +139,9 @@ export async function fetchProjectsWithSkills(): Promise<ProjectItem[]> {
       }
 
       return {
-        id: p.id,
-        title: p.title || "Untitled Project",
-        subtitle: p.subtitle || "",
+        id: proj.id,
+        title: proj.title || "Untitled Project",
+        subtitle: proj.subtitle || "",
         tech: techTags,
         highlights: parsedHighlights.filter(Boolean),
         stats: parsedStats
