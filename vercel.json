@@ -6,8 +6,9 @@
       "destination": "/api/index.ts"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api|assets|favicon.ico|robots.txt).*)",
       "destination": "/index.html"
     }
   ]
 }
+
