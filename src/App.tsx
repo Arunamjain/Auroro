@@ -14,6 +14,7 @@ import AuraDetailsPane from "./components/AuraDetailsPane";
 import DigitalGlobe from "./components/DigitalGlobe";
 import GlitchHeading from "./components/GlitchHeading";
 import TerminalLoader from "./components/TerminalLoader";
+import CustomTerminalCursor from "./components/CustomTerminalCursor";
 
 // Icons
 import {
@@ -212,6 +213,7 @@ function PortfolioAppContent() {
     <div className={`min-h-screen relative overflow-x-hidden flex flex-col font-mono transition-colors duration-500 selection:bg-[#06B6D4]/20 selection:text-[#06B6D4] ${
       isDarkMode ? "bg-[#080B10] text-[#E2E8F0]" : "bg-[#F1F5F9] text-[#0F172A] light-theme"
     }`}>
+      <CustomTerminalCursor />
       
       {/* 0. Initial Terminal Downloading Console Preloader */}
       <AnimatePresence mode="wait">

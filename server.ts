@@ -641,7 +641,7 @@ app.get("/api/supabase/status", async (req, res) => {
 });
 
 // 2. Cryptographic Handshake (Initiates session setup, supplies CSRF token)
-app.post("/api/admin/handshake", (req, res) => {
+app.post(["/api/admin/handshake", "/api/verify-admin"], (req, res) => {
   const clientIP = req.ip || "unknown-ip";
   const tracker = ipRegistry[clientIP] || { failedAttempts: 0, lockoutUntil: 0 };
   
@@ -723,7 +723,7 @@ app.post("/api/admin/login", (req, res) => {
 });
 
 // 4. Session Validation and Verification Endpoint
-app.get("/api/admin/verify", (req, res) => {
+app.get(["/api/admin/verify", "/api/verify-admin"], (req, res) => {
   const cookies = getCookies(req);
   const token = cookies.admin_session;
   

@@ -183,7 +183,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
     }
     
     try {
-      const res = await fetch("/api/admin/handshake", { method: "POST" });
+      const res = await fetch("/api/verify-admin", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
         setCsrfToken(data.csrfToken);

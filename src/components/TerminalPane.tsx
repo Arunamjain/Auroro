@@ -176,7 +176,7 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
         ]);
 
         // 2. Synchronize server session by performing local loop login endpoint request (secures HttpOnly cookie)
-        const csrfRes = await fetch("/api/admin/handshake", { method: "POST" });
+        const csrfRes = await fetch("/api/verify-admin", { method: "POST" });
         if (!csrfRes.ok) {
           throw new Error("Port 3000 authentication pipeline bypassed or closed.");
         }
