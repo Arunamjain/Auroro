@@ -72,9 +72,14 @@ export default function AuraDetailsPane() {
           </div>
 
           <div className="space-y-2">
-            {portfolioData.certifications.map((cert, idx) => (
+            {portfolioData.certifications.length === 0 ? (
+              <div className="p-6 border border-dashed border-white/10 bg-white/[0.01] rounded-none text-center text-[10px] text-white/40 font-mono uppercase tracking-wider">
+                NO_CERTIFICATES_INDEXED // RUN 'sudo access --admin' TO PUBLISH DATA.JSON
+              </div>
+            ) : (
+            portfolioData.certifications.map((cert, idx) => (
               <motion.div
-                key={cert.name}
+                key={`${cert.name}-${idx}`}
                 initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.2, delay: idx * 0.05 }}
@@ -84,8 +89,8 @@ export default function AuraDetailsPane() {
                   <Award className="w-3.5 h-3.5 text-white/70 shrink-0 select-all" />
                   <div className="truncate font-mono">
                     <div className="text-white/90 font-bold truncate tracking-wide flex items-center pr-1.5" title={cert.name}>
-                      {(cert as any).credentialUrl ? (
-                        <a href={(cert as any).credentialUrl} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--theme-accent)] transition flex items-center gap-1">
+                      {cert.credentialUrl ? (
+                        <a href={cert.credentialUrl} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--theme-accent)] transition flex items-center gap-1">
                           <span>{cert.name.toUpperCase()}</span>
                           <ExternalLink className="w-2.5 h-2.5 text-[var(--theme-accent)] shrink-0 inline-block" />
                         </a>
@@ -106,7 +111,8 @@ export default function AuraDetailsPane() {
                   </span>
                 </div>
               </motion.div>
-            ))}
+            ))
+            )}
           </div>
         </div>
 

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import { usePortfolio } from "../context/PortfolioContext";
-import { getSupabaseClient } from "../lib/supabaseClient";
 import MatrixRain from "./MatrixRain";
 
 interface ConsoleLine {
@@ -15,7 +14,7 @@ interface TerminalPaneProps {
 const isSudoAdminIntent = (arg: string | null): boolean => {
   if (!arg) return false;
   const normalized = arg.trim().toLowerCase().replace(/\s+/g, " ");
-  
+
   // Loose matching using Regular Expression for typo resilience (e.g., "acces", "acess", "aces", etc.)
   // and matching trailing argument flags cleanly
   const accessPattern = /^(acc?es?s?|ac?ces?s?)([\s\-_]+(a|adm|admin|--admin|-admin|--adm|-a))?$/;
@@ -23,7 +22,7 @@ const isSudoAdminIntent = (arg: string | null): boolean => {
 };
 
 export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
-  const { portfolio: portfolioData } = usePortfolio();
+  const { portfolio: portfolioData, dataSource, dataSourceMessage } = usePortfolio();
   const [showMatrix, setShowMatrix] = useState(false);
   const [history, setHistory] = useState<ConsoleLine[]>([
     { text: "CORE SHELL BOOTLOAD SYSTEM_INIT [v1.0.4] ... OK", type: "system" },
@@ -34,10 +33,9 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
   const [inputVal, setInputVal] = useState("");
   const [cmdHistory, setCmdHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
-  const [passwordMode, setPasswordMode] = useState(false);
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const reportedSourceRef = useRef<string | null>(null);
 
   // Auto-scroll console to bottom on stream updates
   useEffect(() => {
@@ -46,51 +44,35 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
     }
   }, [history]);
 
-  // Query Supabase backend status on load to report connection diagnostics entirely on the client side
+  // Report runtime GitHub Contents API data source status once resolved
   useEffect(() => {
-    const fetchSupabaseStatus = async () => {
-      try {
-        const url = (import.meta as any).env.VITE_SUPABASE_URL;
-        const anonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
-        const configured = !!url && !!anonKey && !url.includes("placeholder");
+    if (!dataSourceMessage || reportedSourceRef.current === `${dataSource}:${dataSourceMessage}`) return;
+    reportedSourceRef.current = `${dataSource}:${dataSourceMessage}`;
 
-        if (configured) {
-          const supabase = getSupabaseClient();
-          // Perform a fast lightweight query to verify the connection
-          const { error } = await supabase.from("projects").select("id").limit(1);
+    if (dataSource === "github") {
+      setHistory((prev) => [
+        ...prev,
+        { text: "[SYSTEM_OK] Connected to GitHub Contents API (Arunamjain/Auroro/data.json).", type: "heading" },
+        { text: "Live data loaded for skills, projects, certificates, and experiences.", type: "system" },
+        { text: "", type: "output" },
+      ]);
+    } else if (dataSource === "github-empty") {
+      setHistory((prev) => [
+        ...prev,
+        { text: "[SYSTEM_INFO] Remote data.json returned 404 — sections initialized empty.", type: "system" },
+        { text: "Run 'sudo access --admin' to create and publish data.json.", type: "system" },
+        { text: "", type: "output" },
+      ]);
+    } else if (dataSourceMessage !== "Initializing portfolio data...") {
+      setHistory((prev) => [
+        ...prev,
+        { text: "[SYSTEM_FALLBACK] GitHub Contents API unreachable — using bundled data.json snapshot.", type: "system" },
+        { text: "", type: "output" },
+      ]);
+    }
+  }, [dataSource, dataSourceMessage]);
 
-          if (!error) {
-            setHistory((prev) => [
-              ...prev,
-              { text: `[SUPABASE_OK] Live relational DB connected successfully!`, type: "heading" },
-              { text: "Dynamic reading/writing vectors active for 'projects' and 'experiences' catalogues.", type: "system" },
-              { text: "", type: "output" }
-            ]);
-          } else {
-            setHistory((prev) => [
-              ...prev,
-              { text: "[SUPABASE_ERR] Credentials detected but diagnostic handshaking failed!", type: "error" },
-              { text: `Details: ${error.message}`, type: "error" },
-              { text: "Ensure your tables are created in Supabase. You can run 'Seed Supabase DB' in your admin panel once logged in to synchronize them.", type: "system" },
-              { text: "", type: "output" }
-            ]);
-          }
-        } else {
-          setHistory((prev) => [
-            ...prev,
-            { text: "[SUPABASE_STANDBY] Static JSON fallback active. Relational database offline.", type: "system" },
-            { text: "Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your env configurations via the Settings menu to activate real-time Supabase sync.", type: "system" },
-            { text: "", type: "output" }
-          ]);
-        }
-      } catch (e: any) {
-        console.warn("Could not retrieve Supabase connection diagnostics status on boot:", e);
-      }
-    };
-    fetchSupabaseStatus();
-  }, []);
-
-  // Clean terminal history upon admin logout to prevent history leak
+  // Clean terminal history upon admin logout
   useEffect(() => {
     const handleLogoutEvent = () => {
       setHistory([
@@ -102,8 +84,6 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
       setInputVal("");
       setCmdHistory([]);
       setHistoryIndex(-1);
-      setPasswordMode(false);
-      setIsAuthenticating(false);
     };
 
     window.addEventListener("admin-logout", handleLogoutEvent);
@@ -120,8 +100,6 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (passwordMode) return; // Prevent history traversal while typing passwords
-
     if (e.key === "ArrowUp") {
       e.preventDefault();
       if (cmdHistory.length === 0) return;
@@ -151,70 +129,6 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
     const cmd = inputVal.trim();
     if (!cmd) return;
 
-    if (passwordMode) {
-      setInputVal("");
-      if (isAuthenticating) return;
-
-      setIsAuthenticating(true);
-
-      // Log stylized handshaking line (password is securely hidden)
-      setHistory((prev) => [
-        ...prev,
-        { text: "ENTER ADMIN ACCESS CODE: ••••••••", type: "input" },
-        { text: "[SECURE_CONNECT] Initiating cryptographic database signature verification...", type: "system" }
-      ]);
-
-      try {
-        const supabase = getSupabaseClient();
-
-        // 1. Execute the login request using the Supabase client SDK:
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: "arunamjaindps7@gmail.com",
-          password: cmd
-        });
-
-        if (error) {
-          setHistory((prev) => [
-            ...prev,
-            { text: `ERR: Supabase auth handshaking rejected: ${error.message}`, type: "error" },
-            { text: "Access coordinate signatures invalidated.", type: "error" },
-            { text: "", type: "output" }
-          ]);
-          setPasswordMode(false);
-          setIsAuthenticating(false);
-          return;
-        }
-
-        setHistory((prev) => [
-          ...prev,
-          { text: "[SUPABASE_OK] Credentials authenticated successfully via client SDK gateway.", type: "heading" },
-          { text: "[SESSION_STABLE] Client-side Supabase session active and saved to local state.", type: "system" },
-          { text: "[SYSTEM_DECK_UNLOCKED] Authorized to access Central Matrix Deck.", type: "heading" },
-          { text: "Bootloader completed. Opening secure console window...", type: "system" },
-          { text: "", type: "output" }
-        ]);
-
-        // Open Central Dashboard in Authenticated mode immediately
-        if (onAdminTrigger) {
-          setTimeout(() => {
-            onAdminTrigger();
-          }, 600);
-        }
-      } catch (err: any) {
-        setHistory((prev) => [
-          ...prev,
-          { text: `ERR: Direct client-side verification exception: ${err.message || err}`, type: "error" },
-          { text: "", type: "output" }
-        ]);
-      } finally {
-        setPasswordMode(false);
-        setIsAuthenticating(false);
-      }
-      return;
-    }
-
-    // Normal command trajectory
-    // Save to execution history, provided password is not captured
     setCmdHistory((prev) => {
       if (prev.length > 0 && prev[prev.length - 1] === cmd) return prev;
       return [...prev, cmd];
@@ -226,7 +140,6 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
     const primaryCmd = parts[0];
     const argument = parts.length > 1 ? parts.slice(1).join(" ") : null;
 
-    // Append standard prompt line
     const updatedHistory: ConsoleLine[] = [
       ...history,
       { text: `guest@arunam_jain.sys:~$ ${cmd}`, type: "input" },
@@ -257,25 +170,19 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
       return;
     }
 
-    // Easter Egg Command 3: Rickroll Redirect
+    // Easter Egg Command 3: Rickroll
     if (
-      cleanCmd === "rickroll" || 
-      cleanCmd === "curl -l rickyroll" || 
-      cleanCmd === "curl -l rickyroll" || 
-      cleanCmd === "curl -L rickroll" || 
-      cleanCmd === "curl -l rickroll" || 
+      cleanCmd === "rickroll" ||
+      cleanCmd === "curl -l rickyroll" ||
+      cleanCmd === "curl -l rickroll" ||
       cleanCmd === "curl rickroll"
     ) {
-      updatedHistory.push({ 
-        text: "[SECURE_LINK] Redirecting to critical subsystem data stream...", 
-        type: "system" 
-      });
+      updatedHistory.push(
+        { text: "[SECURE_LINK] Never gonna give you up, never gonna let you down...", type: "heading" },
+        { text: "Stream locked in sandbox: https://www.youtube.com/watch?v=dQw4w9WgXcQ", type: "system" }
+      );
       setHistory(updatedHistory);
       setInputVal("");
-
-      setTimeout(() => {
-        window.open("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "_blank");
-      }, 500);
       return;
     }
 
@@ -337,42 +244,51 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
         } else if (argument === "curriculum.txt") {
           updatedHistory.push(
             { text: `--- CURRICULUM.TXT ---`, type: "heading" },
-            ...portfolioData.education.map(edu => ({
+            ...portfolioData.education.map((edu) => ({
               text: `  [+] ${edu.institution} - ${edu.degree} | ${edu.period} (${edu.location})`,
-              type: "output" as const
+              type: "output" as const,
             }))
           );
         } else if (argument === "credentials.db") {
           updatedHistory.push(
             { text: `--- CREDENTIALS.DB ---`, type: "heading" },
-            ...portfolioData.certifications.map(cert => ({
-              text: `  [*] ${cert.name} [Issuer: ${cert.issuer}] (${cert.date})`,
-              type: "output" as const
-            }))
+            ...(portfolioData.certifications.length > 0
+              ? portfolioData.certifications.map((cert) => ({
+                  text: `  [*] ${cert.name} [Issuer: ${cert.issuer}] (${cert.date})`,
+                  type: "output" as const,
+                }))
+              : [{ text: "  (No certificates currently recorded in data.json)", type: "system" as const }])
           );
         } else {
-          updatedHistory.push({ text: `ERR: File path '${argument}' not found in ~/guest. Try 'ls' for file directory.`, type: "error" });
+          updatedHistory.push({
+            text: `ERR: File path '${argument}' not found in ~/guest. Try 'ls' for file directory.`,
+            type: "error",
+          });
         }
         break;
 
       case "skills":
         updatedHistory.push(
           { text: "TECHNICAL SKILLS ANALYSIS MATRIX:", type: "heading" },
-          ...portfolioData.skills.map(grp => ({
-            text: `  [${grp.category.toUpperCase()}]:  ${grp.skills.join(", ")}`,
-            type: "output" as const
-          }))
+          ...(portfolioData.skills.length > 0
+            ? portfolioData.skills.map((grp) => ({
+                text: `  [${grp.category.toUpperCase()}]:  ${grp.skills.join(", ")}`,
+                type: "output" as const,
+              }))
+            : [{ text: "  (No skill groups currently recorded in data.json)", type: "system" as const }])
         );
         break;
 
       case "projects":
         updatedHistory.push(
           { text: "COMPUTATIONAL MODELS & ANALYSIS DIRECTORIES:", type: "heading" },
-          ...portfolioData.projects.flatMap(proj => [
-            { text: `  Module [${proj.title.toUpperCase()}] - ${proj.subtitle}`, type: "heading" as const },
-            { text: `    Tech Stack:  ${proj.tech.join(" | ")}`, type: "output" as const },
-            ...proj.highlights.map(hl => ({ text: `    - ${hl}`, type: "output" as const }))
-          ])
+          ...(portfolioData.projects.length > 0
+            ? portfolioData.projects.flatMap((proj) => [
+                { text: `  Module [${proj.title.toUpperCase()}] - ${proj.subtitle}`, type: "heading" as const },
+                { text: `    Tech Stack:  ${proj.tech.join(" | ")}`, type: "output" as const },
+                ...proj.highlights.map((hl) => ({ text: `    - ${hl}`, type: "output" as const })),
+              ])
+            : [{ text: "  (No projects currently recorded in data.json)", type: "system" as const }])
         );
         break;
 
@@ -385,7 +301,10 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
             { text: `[DATA_PACKET] Envelope: "${argument}"`, type: "system" },
             { text: `[TRANSMITTING] Relaying to mail client destination...`, type: "system" },
             { text: `[SUCCESS] Secure email client command dispatched!`, type: "heading" },
-            { text: `Please click send on your mail application to finish transmitting to ${portfolioData.personalInfo.email}`, type: "output" }
+            {
+              text: `Please click send on your mail application to finish transmitting to ${portfolioData.personalInfo.email}`,
+              type: "output",
+            }
           );
 
           const subject = encodeURIComponent("Portfolio Message from Terminal Guest");
@@ -398,7 +317,7 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
         updatedHistory.push(
           {
             text: `   _        _       OS: auroro
-  / \\      | |      Host: Arunam Jain
+  / \\      | |      Host: ${portfolioData.personalInfo.name}
  / _ \\  _  | |      Focus: Data Science & Analytics
 / ___ \\| | | |      Environment: Terminal + Browser
 /_/   \\_\\_\\_/_|     Shell: zsh / bash
@@ -407,31 +326,40 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
             type: "output",
           },
           { text: `ENGINE CORE INTEGRATION:`, type: "heading" },
-          { text: `  Main Target Portfolio: Arunam Jain`, type: "output" },
-          { text: `  Role Descriptor:       Data Science Coordinator & Technical Lead`, type: "output" },
-          { text: `  Location Nodes:        Guna, MP, India`, type: "output" },
-          { text: `  Core Stack:            Python, C++, SQL, FastAPI, Supabase`, type: "output" }
+          { text: `  Main Target Portfolio: ${portfolioData.personalInfo.name}`, type: "output" },
+          { text: `  Role Descriptor:       ${portfolioData.personalInfo.title}`, type: "output" },
+          { text: `  Location Nodes:        ${portfolioData.personalInfo.location}`, type: "output" },
+          { text: `  Core Stack:            Python, C++, SQL, FastAPI, PostgreSQL`, type: "output" }
         );
         break;
 
       case "sudo":
         if (isSudoAdminIntent(argument)) {
           updatedHistory.push(
-            { text: "[HANDSHAKE_INIT] Directing access command to security shield on standard ports...", type: "system" },
-            { text: "ENTER ADMIN ACCESS CODE:", type: "heading" }
+            { text: "[ADMIN_GATEWAY] Opening Root Admin Dock...", type: "heading" },
+            { text: "Authenticate inside the panel using your GitHub fine-grained token.", type: "system" },
+            { text: "", type: "output" }
           );
-          setPasswordMode(true);
+          if (onAdminTrigger) {
+            setTimeout(() => onAdminTrigger(), 200);
+          }
         } else {
-          updatedHistory.push({ text: "ERR: Sudo privilege level invalid. System usage: 'sudo access --admin'.", type: "error" });
+          updatedHistory.push({
+            text: "ERR: Sudo privilege level invalid. System usage: 'sudo access --admin'.",
+            type: "error",
+          });
         }
         break;
 
       case "init_auth_session":
         updatedHistory.push(
-          { text: "[SESSION_INIT] Pre-firing auth state handshaking packets...", type: "system" },
-          { text: "ENTER ADMIN ACCESS CODE:", type: "heading" }
+          { text: "[ADMIN_GATEWAY] Opening Root Admin Dock...", type: "heading" },
+          { text: "Authenticate inside the panel using your GitHub fine-grained token.", type: "system" },
+          { text: "", type: "output" }
         );
-        setPasswordMode(true);
+        if (onAdminTrigger) {
+          setTimeout(() => onAdminTrigger(), 200);
+        }
         break;
 
       default:
@@ -451,9 +379,7 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
       className="w-full h-full min-h-[180px] bg-white/[0.01] rounded-none border border-white/5 hover:border-[var(--theme-border-hover)] transition-all font-mono p-4 overflow-hidden flex flex-col justify-between text-xs cursor-text shadow-2xl relative border-l-2 border-l-[var(--theme-accent)]"
     >
       {/* Matrix rain overlay */}
-      {showMatrix && (
-        <MatrixRain onExit={() => setShowMatrix(false)} />
-      )}
+      {showMatrix && <MatrixRain onExit={() => setShowMatrix(false)} />}
 
       {/* Console Header */}
       <div className="flex justify-between items-center border-b border-white/5 pb-2 mb-2 select-none">
@@ -463,7 +389,9 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
           <span className="w-2 h-2 rounded-none bg-[var(--theme-accent)]/30 border border-[var(--theme-accent)]/60" />
           <span className="pl-1 text-white font-bold uppercase tracking-wider">HOST_TERMINAL://bash</span>
         </div>
-        <span className="text-[10px] text-[var(--theme-accent)] tracking-wider font-bold select-none font-mono">SECURE ACCESS</span>
+        <span className="text-[10px] text-[var(--theme-accent)] tracking-wider font-bold select-none font-mono">
+          SECURE ACCESS
+        </span>
       </div>
 
       {/* Terminal Rows Area */}
@@ -490,11 +418,11 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
       {/* Input Core Form */}
       <form onSubmit={handleCommandSubmit} className="flex items-center w-full pl-0 border-t border-white/5 pt-2">
         <span className="text-[var(--theme-accent)] font-bold mr-1.5 select-none font-mono text-[11px] shrink-0">
-          {passwordMode ? "ENTER ADMIN ACCESS CODE:" : "guest@arunam_jain.sys:~$"}
+          guest@arunam_jain.sys:~$
         </span>
         <input
           ref={inputRef}
-          type={passwordMode ? "password" : "text"}
+          type="text"
           value={inputVal}
           onChange={(e) => setInputVal(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -502,16 +430,6 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
           maxLength={80}
           autoComplete="off"
           spellCheck="false"
-          disabled={isAuthenticating}
-          placeholder={passwordMode ? "Decrypting code key..." : ""}
-        />
-
-        {/* SECURITY OVERRIDE & EXECUTOR BYPASS CONTROLS (INSPECT ELEMENT TRACE) */}
-        <div 
-          style={{ display: "none" }} 
-          id="security-override-key" 
-          data-inspect-passcode="admin123" 
-          data-administrative-email="arunamjaindps7@gmail.com" 
         />
       </form>
     </div>

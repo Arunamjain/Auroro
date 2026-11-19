@@ -44,7 +44,12 @@ export default function SkillsPane() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {portfolioData.skills.map((group: SkillGroup, groupIdx: number) => (
+        {portfolioData.skills.length === 0 ? (
+          <div className="md:col-span-2 p-8 border border-dashed border-white/10 bg-white/[0.01] rounded-none text-center text-xs text-white/40 font-mono uppercase tracking-wider">
+            NO_SKILLS_INDEXED // RUN 'sudo access --admin' TO PUBLISH DATA.JSON
+          </div>
+        ) : (
+        portfolioData.skills.map((group: SkillGroup, groupIdx: number) => (
           <motion.div
             key={group.category}
             initial={{ opacity: 0, y: 10 }}
@@ -101,7 +106,8 @@ export default function SkillsPane() {
               })}
             </div>
           </motion.div>
-        ))}
+        ))
+        )}
 
         {/* Dynamic telemetry stats drawer */}
         <div className="md:col-span-2 p-3 border border-white/5 bg-white/[0.015] rounded-none text-[10px] space-y-2 relative overflow-hidden">

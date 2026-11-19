@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ExperienceItem } from "../data/portfolioData";
 import { usePortfolio } from "../context/PortfolioContext";
 import { motion, AnimatePresence } from "motion/react";
@@ -7,6 +7,14 @@ import { Calendar, Briefcase, ChevronRight, Terminal, Globe } from "lucide-react
 export default function ExperiencePane() {
   const { portfolio: portfolioData } = usePortfolio();
   const [activeId, setActiveId] = useState<string | null>(portfolioData.experience[0]?.id || null);
+
+  useEffect(() => {
+    if (portfolioData.experience.length === 0) {
+      setActiveId(null);
+    } else if (!portfolioData.experience.some((exp) => exp.id === activeId)) {
+      setActiveId(portfolioData.experience[0].id);
+    }
+  }, [portfolioData.experience, activeId]);
 
   return (
     <div className="space-y-4 font-mono select-none">
@@ -17,6 +25,11 @@ export default function ExperiencePane() {
         <span className="text-[10px] text-[var(--theme-accent)] font-mono tracking-tight font-black">ACTIVE_OPERATIONS_LOGS</span>
       </div>
 
+      {portfolioData.experience.length === 0 ? (
+        <div className="p-8 border border-dashed border-white/10 bg-white/[0.01] rounded-none text-center text-xs text-white/40 font-mono uppercase tracking-wider">
+          NO_EXPERIENCE_LOGS_INDEXED // RUN 'sudo access --admin' TO PUBLISH DATA.JSON
+        </div>
+      ) : (
       <div className="flex flex-col md:flex-row gap-4">
         {/* Experience Selector Tabs (Vertical on Tablet/Desktop) */}
         <div className="w-full md:w-1/3 flex md:flex-col gap-2">
@@ -116,6 +129,7 @@ export default function ExperiencePane() {
           </AnimatePresence>
         </div>
       </div>
+      )}
     </div>
   );
 }

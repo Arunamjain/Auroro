@@ -12,6 +12,14 @@ export default function ProjectsPane() {
   const timeoutsRef = useRef<any[]>([]);
 
   useEffect(() => {
+    if (portfolioData.projects.length === 0) {
+      setActiveProject("");
+    } else if (!portfolioData.projects.some((p) => p.id === activeProject)) {
+      setActiveProject(portfolioData.projects[0].id);
+    }
+  }, [portfolioData.projects, activeProject]);
+
+  useEffect(() => {
     return () => {
       // Clear all active timers on tab toggle or unmount
       timeoutsRef.current.forEach(clearTimeout);
@@ -62,6 +70,11 @@ export default function ProjectsPane() {
         <span className="text-[10px] text-[var(--theme-accent)] font-mono tracking-tight font-black">DATA SYSTEMS</span>
       </div>
 
+      {portfolioData.projects.length === 0 ? (
+        <div className="p-8 border border-dashed border-white/10 bg-white/[0.01] rounded-none text-center text-xs text-white/40 font-mono uppercase tracking-wider">
+          NO_PROJECTS_INDEXED // RUN 'sudo access --admin' TO PUBLISH DATA.JSON
+        </div>
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Project Selector Sidebar */}
         <div className="lg:col-span-4 flex flex-col gap-2">
@@ -205,6 +218,7 @@ export default function ProjectsPane() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

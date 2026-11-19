@@ -1,14 +1,4 @@
 {
-  "personalInfo": {
-    "name": "Arunam Jain",
-    "title": "Data Science Coordinator & Technical Lead",
-    "subTitle": "Python Developer & Full-Stack Analyst",
-    "email": "arunamjaindps7@gmail.com",
-    "location": "Guna, MP, India",
-    "githubUrl": "https://github.com/ArunamJain",
-    "linkedinUrl": "https://www.linkedin.com/in/arunam-jain-162a7931a",
-    "bio": "Passionate B.Tech Computer Science student specializing in Data Science, ETL optimization, and machine learning pipeline construction. Proven track record leading cohorts of 150+ students in predictive modeling and quantitative data analytics."
-  },
   "skills": [
     {
       "category": "Languages",
@@ -66,30 +56,6 @@
         "Statistical Modeling",
         "Linear Regression",
         "REST API Integration"
-      ]
-    }
-  ],
-  "experience": [
-    {
-      "id": "code-conquerors",
-      "role": "Data Science Coordinator & Technical Lead",
-      "company": "Code Conquerors",
-      "location": "Guna, India",
-      "period": "Jun 2025 - Present",
-      "highlights": [
-        "Improved data handling proficiency of 150+ students by 40% across 3 cohorts by designing and delivering an 8-module Python/data curriculum with hands-on dashboard-building & KPI tracking.",
-        "Accelerated project delivery for 20+ mentees building EDA and classification models; conducted structured reviews translating findings into stakeholder-ready reports using Pandas and Seaborn."
-      ]
-    },
-    {
-      "id": "rospinot",
-      "role": "Python Developer (Volunteer)",
-      "company": "RoSPinoT",
-      "location": "Remote, India",
-      "period": "Jul 2024 - Present",
-      "highlights": [
-        "Reduced ETL pipeline runtime by ~30% for a distributed open-source team by engineering batch-processing Python scripts for multi-source data collection, cleaning, and transformation.",
-        "Improved cross-team workflow consistency across 5+ data pipelines by documenting end-to-end ETL processes on Ubuntu/Linux, enabling direct action on outputs."
       ]
     }
   ],
@@ -212,15 +178,7 @@
       ]
     }
   ],
-  "education": [
-    {
-      "institution": "Jaypee University of Engineering and Technology",
-      "degree": "B.Tech – Computer Science & Engineering",
-      "period": "Jul 2024 – May 2028",
-      "location": "Guna, Madhya Pradesh"
-    }
-  ],
-  "certifications": [
+  "certificates": [
     {
       "name": "Data Analysis with Python",
       "issuer": "freeCodeCamp",
@@ -241,5 +199,39 @@
       "issuer": "IETE",
       "date": "Oct 2024"
     }
-  ]
+  ],
+  "experiences": [
+    {
+      "id": "code-conquerors",
+      "role": "Data Science Coordinator & Technical Lead",
+      "company": "Code Conquerors",
+      "location": "Guna, India",
+      "period": "Jun 2025 - Present",
+      "highlights": [
+        "Improved data handling proficiency of 150+ students by 40% across 3 cohorts by designing and delivering an 8-module Python/data curriculum with hands-on dashboard-building & KPI tracking.",
+        "Accelerated project delivery for 20+ mentees building EDA and classification models; conducted structured reviews translating findings into stakeholder-ready reports using Pandas and Seaborn."
+      ]
+    },
+    {
+      "id": "rospinot",
+      "role": "Python Developer (Volunteer)",
+      "company": "RoSPinoT",
+      "location": "Remote, India",
+      "period": "Jul 2024 - Present",
+      "highlights": [
+        "Reduced ETL pipeline runtime by ~30% for a distributed open-source team by engineering batch-processing Python scripts for multi-source data collection, cleaning, and transformation.",
+        "Improved cross-team workflow consistency across 5+ data pipelines by documenting end-to-end ETL processes on Ubuntu/Linux, enabling direct action on outputs."
+      ]
+    }
+  ],
+  "personalInfo": {
+    "name": "Arunam Jain",
+    "title": "Data Science Coordinator & Technical Lead",
+    "subTitle": "Python Developer & Full-Stack Analyst",
+    "email": "arunamjaindps7@gmail.com",
+    "location": "Guna, MP, India",
+    "githubUrl": "https://github.com/ArunamJain",
+    "linkedinUrl": "https://www.linkedin.com/in/arunam-jain-162a7931a",
+    "bio": "Passionate B.Tech Computer Science student specializing in Data Science, ETL optimization, and machine learning pipeline construction. Proven track record leading cohorts of 150+ students in predictive modeling and quantitative data analytics."
+  }
 }
