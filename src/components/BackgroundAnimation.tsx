@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 interface Node {
   x: number;
@@ -9,9 +9,8 @@ interface Node {
   alpha: number;
 }
 
-export default function BackgroundAnimation() {
+export default function BackgroundAnimation({ isDarkMode = true }: { isDarkMode?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -24,7 +23,6 @@ export default function BackgroundAnimation() {
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
-    // Generate telemetry coordinates / floating background node stars - optimized density for clarity and performance
     const nodes: Node[] = [];
     const maxNodes = Math.min(42, Math.floor((width * height) / 48000));
 
@@ -51,17 +49,14 @@ export default function BackgroundAnimation() {
 
     window.addEventListener("resize", handleResize, { passive: true });
 
-    // Particle rendering loop
     const animate = () => {
       if (!ctx || !canvas) return;
       ctx.clearRect(0, 0, width, height);
 
-      // Render subtle glowing digital grid intersection nodes
       const gridSize = 120;
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.012)";
+      ctx.strokeStyle = isDarkMode ? "rgba(255, 255, 255, 0.012)" : "rgba(14, 116, 144, 0.055)";
       ctx.lineWidth = 1;
 
-      // Draw horizontal lines
       for (let y = 0; y < height; y += gridSize) {
         ctx.beginPath();
         ctx.moveTo(0, y);
@@ -69,7 +64,6 @@ export default function BackgroundAnimation() {
         ctx.stroke();
       }
 
-      // Draw vertical lines
       for (let x = 0; x < width; x += gridSize) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
@@ -77,27 +71,23 @@ export default function BackgroundAnimation() {
         ctx.stroke();
       }
 
-      // Draw particles (floating network nodes representing telemetry streams)
       for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
-        
-        // Update positions
         node.x += node.vx;
         node.y += node.vy;
 
-        // Wrap around screen boundaries
         if (node.x < 0) node.x = width;
         if (node.x > width) node.x = 0;
         if (node.y < 0) node.y = height;
         if (node.y > height) node.y = 0;
 
-        // Draw particle
         ctx.beginPath();
         ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${node.alpha * 0.7})`;
+        ctx.fillStyle = isDarkMode
+          ? `rgba(255, 255, 255, ${node.alpha * 0.7})`
+          : `rgba(14, 116, 144, ${node.alpha * 0.45})`;
         ctx.fill();
 
-        // Connect particles within proximity threshold (creates a neuronal/sensor mesh) using squared distance to avoid Math.sqrt where possible
         const maxDist = 150;
         const maxDistSq = maxDist * maxDist;
         for (let j = i + 1; j < nodes.length; j++) {
@@ -108,11 +98,13 @@ export default function BackgroundAnimation() {
 
           if (distSq < maxDistSq) {
             const dist = Math.sqrt(distSq);
-            const lineAlpha = (1 - dist / maxDist) * 0.08 * Math.min(node.alpha, otherNode.alpha);
+            const lineAlpha = (1 - dist / maxDist) * (isDarkMode ? 0.08 : 0.14) * Math.min(node.alpha, otherNode.alpha);
             ctx.beginPath();
             ctx.moveTo(node.x, node.y);
             ctx.lineTo(otherNode.x, otherNode.y);
-            ctx.strokeStyle = `rgba(255, 255, 255, ${lineAlpha})`;
+            ctx.strokeStyle = isDarkMode
+              ? `rgba(255, 255, 255, ${lineAlpha})`
+              : `rgba(14, 116, 144, ${lineAlpha})`;
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }
@@ -129,29 +121,22 @@ export default function BackgroundAnimation() {
       clearTimeout(resizeTimeout);
       cancelAnimationFrame(animationId);
     };
-  }, []);
+  }, [isDarkMode]);
 
   return (
     <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-      {/* 
-        DEVELOPER / MODIFICATION FRIENDLY INSTRUCTIONS:
-        This BackgroundAnimation is modularly scoped. To transition to a 
-        full 3D background using React Three Fiber or Three.js in the future:
-        
-        1. Run: npx install_applet_package @react-three/fiber @react-three/drei three @types/three
-        2. Replace this Canvas with your 3D Scene e.g.:
-           <Canvas camera={{ position: [0, 0, 5] }}>
-             <color attach="background" args={["#0A0A0A"]} />
-             <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-             <Animated3DModels />
-           </Canvas>
-      */}
       <canvas
         ref={canvasRef}
         id="bg-matrix-canvas"
         className="w-full h-full block opacity-70"
       />
-      <div className="absolute inset-0 bg-radial-vignette pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_30%,#0A0A0A_90%)]" />
+      <div
+        className={`absolute inset-0 bg-radial-vignette pointer-events-none transition-colors duration-500 ${
+          isDarkMode
+            ? "bg-[radial-gradient(ellipse_at_center,transparent_30%,#0A0A0A_90%)]"
+            : "bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(226,232,240,0.8)_95%)]"
+        }`}
+      />
     </div>
   );
 }

@@ -94,7 +94,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         if (result.source === "github") {
           appendLog("[GITHUB_OK] Decoded Base64 payload for skills, projects, certificates & experiences.");
         } else if (result.source === "github-empty") {
-          appendLog("[GITHUB_404] Remote data.json not found — initialized empty portfolio sections.");
+          appendLog("[GITHUB_404] Remote data.json not yet published — loaded bundled data.json.");
         } else {
           appendLog("[FALLBACK] GitHub Contents API unavailable — loaded bundled portfolio snapshot.");
         }

@@ -59,8 +59,8 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
     } else if (dataSource === "github-empty") {
       setHistory((prev) => [
         ...prev,
-        { text: "[SYSTEM_INFO] Remote data.json returned 404 — sections initialized empty.", type: "system" },
-        { text: "Run 'sudo access --admin' to create and publish data.json.", type: "system" },
+        { text: "[SYSTEM_INFO] Remote data.json not yet published (404) — displaying bundled data.json.", type: "system" },
+        { text: "Run 'sudo access --admin' to edit and publish data.json to GitHub.", type: "system" },
         { text: "", type: "output" },
       ]);
     } else if (dataSourceMessage !== "Initializing portfolio data...") {
@@ -376,18 +376,18 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
   return (
     <div
       onClick={focusTerminal}
-      className="w-full h-full min-h-[180px] bg-white/[0.01] rounded-none border border-white/5 hover:border-[var(--theme-border-hover)] transition-all font-mono p-4 overflow-hidden flex flex-col justify-between text-xs cursor-text shadow-2xl relative border-l-2 border-l-[var(--theme-accent)]"
+      className="w-full h-full min-h-[180px] bg-[var(--theme-surface-subtle)] rounded-none border border-[var(--theme-divider)] hover:border-[var(--theme-border-hover)] transition-all font-mono p-4 overflow-hidden flex flex-col justify-between text-xs cursor-text shadow-2xl relative border-l-2 border-l-[var(--theme-accent)]"
     >
       {/* Matrix rain overlay */}
       {showMatrix && <MatrixRain onExit={() => setShowMatrix(false)} />}
 
       {/* Console Header */}
-      <div className="flex justify-between items-center border-b border-white/5 pb-2 mb-2 select-none">
-        <div className="flex items-center space-x-1.5 text-[10px] text-white/65 font-mono">
-          <span className="w-2 h-2 rounded-none bg-white/10 border border-white/20" />
-          <span className="w-2 h-2 rounded-none bg-white/20 border border-white/40" />
+      <div className="flex justify-between items-center border-b border-[var(--theme-divider)] pb-2 mb-2 select-none">
+        <div className="flex items-center space-x-1.5 text-[10px] text-[var(--theme-text-secondary)] font-mono">
+          <span className="w-2 h-2 rounded-none bg-[var(--theme-divider)] border border-[var(--theme-divider-strong)]" />
+          <span className="w-2 h-2 rounded-none bg-[var(--theme-divider-strong)] border border-[var(--theme-divider-strong)]" />
           <span className="w-2 h-2 rounded-none bg-[var(--theme-accent)]/30 border border-[var(--theme-accent)]/60" />
-          <span className="pl-1 text-white font-bold uppercase tracking-wider">HOST_TERMINAL://bash</span>
+          <span className="pl-1 text-[var(--theme-text-strong)] font-bold uppercase tracking-wider">HOST_TERMINAL://bash</span>
         </div>
         <span className="text-[10px] text-[var(--theme-accent)] tracking-wider font-bold select-none font-mono">
           SECURE ACCESS
@@ -401,10 +401,10 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
         style={{ maxHeight: "calc(100% - 30px)" }}
       >
         {history.map((line, idx) => {
-          let lineClass = "text-white/80";
+          let lineClass = "text-[var(--theme-text-body)]";
           if (line.type === "input") lineClass = "text-[var(--theme-accent)] font-bold";
-          if (line.type === "error") lineClass = "text-rose-400 font-medium tracking-wide";
-          if (line.type === "system") lineClass = "text-white/40 select-none";
+          if (line.type === "error") lineClass = "text-rose-500 font-medium tracking-wide";
+          if (line.type === "system") lineClass = "text-[var(--theme-text-dim)] select-none";
           if (line.type === "heading") lineClass = "text-[var(--theme-accent)] font-extrabold tracking-wider uppercase";
 
           return (
@@ -416,7 +416,7 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
       </div>
 
       {/* Input Core Form */}
-      <form onSubmit={handleCommandSubmit} className="flex items-center w-full pl-0 border-t border-white/5 pt-2">
+      <form onSubmit={handleCommandSubmit} className="flex items-center w-full pl-0 border-t border-[var(--theme-divider)] pt-2">
         <span className="text-[var(--theme-accent)] font-bold mr-1.5 select-none font-mono text-[11px] shrink-0">
           guest@arunam_jain.sys:~$
         </span>
@@ -426,7 +426,7 @@ export default function TerminalPane({ onAdminTrigger }: TerminalPaneProps) {
           value={inputVal}
           onChange={(e) => setInputVal(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="flex-1 bg-transparent text-white outline-none border-none caret-white select-all font-mono text-xs"
+          className="flex-1 bg-transparent text-[var(--theme-text-strong)] outline-none border-none caret-[var(--theme-accent)] select-all font-mono text-xs"
           maxLength={80}
           autoComplete="off"
           spellCheck="false"

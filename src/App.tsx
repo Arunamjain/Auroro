@@ -43,6 +43,10 @@ function PortfolioAppContent() {
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
 
+  useEffect(() => {
+    document.documentElement.classList.toggle("light-theme", !isDarkMode);
+  }, [isDarkMode]);
+
   // Admin and session control parameters
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [systemAlert, setSystemAlert] = useState<{ show: boolean; title: string; message: string }>({ show: false, title: "", message: "" });
@@ -230,7 +234,7 @@ function PortfolioAppContent() {
       </AnimatePresence>
 
       {/* 1. Futuristic Background Animations (Particles & Grid Lines) */}
-      <BackgroundAnimation />
+      <BackgroundAnimation isDarkMode={isDarkMode} />
 
       {/* Global Scrolling Floating Digital Globe container with GPU translate acceleration */}
       <div 
@@ -274,7 +278,7 @@ function PortfolioAppContent() {
           {/* System Clock Section */}
           <div className="flex items-center space-x-3 font-mono">
             <div className="flex flex-col">
-              <span className={`text-[8px] tracking-widest uppercase font-bold ${isDarkMode ? "text-white/40" : "text-[#13221C]/40"}`}>SYSTEM_CLOCK</span>
+              <span className={`text-[8px] tracking-widest uppercase font-bold ${isDarkMode ? "text-white/40" : "text-slate-500"}`}>SYSTEM_CLOCK</span>
               <div className="flex items-baseline space-x-1.5">
                 <span className="text-xs sm:text-sm font-extrabold tracking-widest">{time || "00:00:00"}</span>
                 <span className={`text-[8px] font-bold ${isDarkMode ? "text-[#06B6D4]" : "text-[#0E7490]"}`}>{utcTime}</span>
@@ -300,7 +304,7 @@ function PortfolioAppContent() {
               className={`px-2 sm:px-2.5 py-1.5 text-[9px] font-mono font-bold rounded-none uppercase tracking-wider transition-all flex items-center space-x-1 border hover:scale-105 active:scale-95 ${
                 isDarkMode
                   ? "border-[#06B6D4]/20 bg-white/[0.01] hover:border-[#06B6D4] hover:bg-[#06B6D4]/5 text-white/60 hover:text-[#06B6D4]"
-                  : "border-[#0E7490]/20 bg-black/[0.01] hover:border-[#0E7490] hover:bg-[#0E7490]/5 text-[#13221C]/70 hover:text-[#0E7490]"
+                  : "border-[#0E7490]/25 bg-white/75 hover:border-[#0E7490] hover:bg-[#0E7490]/10 text-slate-700 hover:text-[#0E7490]"
               }`}
             >
               {item.icon}
@@ -310,22 +314,24 @@ function PortfolioAppContent() {
         </nav>
 
         {/* Telemetry HUD & Controls */}
-        <div className="flex flex-wrap items-center justify-between lg:justify-end gap-3.5 text-[9px] text-white/40 font-mono select-none w-full lg:w-auto">
+        <div className={`flex flex-wrap items-center justify-between lg:justify-end gap-3.5 text-[9px] font-mono select-none w-full lg:w-auto ${
+          isDarkMode ? "text-white/40" : "text-[#0F172A]/70"
+        }`}>
           
           {/* Location & Stack text Info */}
           <div className="hidden xl:flex flex-col text-right">
-            <span className={`text-[8px] tracking-wider font-bold ${isDarkMode ? "text-white/30" : "text-black/30"}`}>LOCATION</span>
-            <span className={`font-bold uppercase ${isDarkMode ? "text-white/80" : "text-[#13221C]/80"}`}>{portfolioData.personalInfo.location}</span>
+            <span className={`text-[8px] tracking-wider font-bold ${isDarkMode ? "text-white/30" : "text-slate-500"}`}>LOCATION</span>
+            <span className={`font-bold uppercase ${isDarkMode ? "text-white/80" : "text-[#0F172A]"}`}>{portfolioData.personalInfo.location}</span>
           </div>
 
-          <div className={`w-[1px] h-6 hidden xl:block ${isDarkMode ? "bg-white/10" : "bg-black/10"}`} />
+          <div className={`w-[1px] h-6 hidden xl:block ${isDarkMode ? "bg-white/10" : "bg-slate-300"}`} />
 
           <div className="hidden sm:flex flex-col text-left lg:text-right">
-            <span className={`text-[8px] tracking-wider font-bold ${isDarkMode ? "text-white/30" : "text-black/30"}`}>OFFENSIVE SECURITY HUD</span>
+            <span className={`text-[8px] tracking-wider font-bold ${isDarkMode ? "text-white/30" : "text-slate-500"}`}>OFFENSIVE SECURITY HUD</span>
             <span className={`font-bold ${isDarkMode ? "text-[#06B6D4]" : "text-[#0E7490]"}`}>FASTAPI // POSTGRESQL // AURORA</span>
           </div>
 
-          <div className={`w-[1px] h-6 hidden sm:block ${isDarkMode ? "bg-white/10" : "bg-black/10"}`} />
+          <div className={`w-[1px] h-6 hidden sm:block ${isDarkMode ? "bg-white/10" : "bg-slate-300"}`} />
 
           {/* Theme Dynamic Controller sun/moon toggle */}
           <button
@@ -350,8 +356,8 @@ function PortfolioAppContent() {
               rel="noreferrer"
               className={`p-1.5 border rounded-none transition-all ${
                 isDarkMode
-                  ? "border-white/5 bg-white/[0.01] hover:border-[#06B6D4]/40 hover:text-[#06B6D4]"
-                  : "border-black/5 bg-black/[0.01] hover:border-[#0E7490]/40 hover:text-[#0E7490]"
+                  ? "border-white/5 bg-white/[0.01] text-white/60 hover:border-[#06B6D4]/40 hover:text-[#06B6D4]"
+                  : "border-slate-300 bg-white/80 text-slate-700 hover:border-[#0E7490]/60 hover:text-[#0E7490]"
               }`}
             >
               <Github className="w-3.5 h-3.5" />
@@ -362,8 +368,8 @@ function PortfolioAppContent() {
               rel="noreferrer"
               className={`p-1.5 border rounded-none transition-all ${
                 isDarkMode
-                  ? "border-white/5 bg-white/[0.01] hover:border-[#06B6D4]/40 hover:text-[#06B6D4]"
-                  : "border-black/5 bg-black/[0.01] hover:border-[#0E7490]/40 hover:text-[#0E7490]"
+                  ? "border-white/5 bg-white/[0.01] text-white/60 hover:border-[#06B6D4]/40 hover:text-[#06B6D4]"
+                  : "border-slate-300 bg-white/80 text-slate-700 hover:border-[#0E7490]/60 hover:text-[#0E7490]"
               }`}
             >
               <Linkedin className="w-3.5 h-3.5" />
@@ -372,8 +378,8 @@ function PortfolioAppContent() {
               href={`mailto:${portfolioData.personalInfo.email}`}
               className={`p-1.5 border rounded-none transition-all ${
                 isDarkMode
-                  ? "border-white/5 bg-white/[0.01] hover:border-[#06B6D4]/40 hover:text-[#06B6D4]"
-                  : "border-black/5 bg-black/[0.01] hover:border-[#0E7490]/40 hover:text-[#0E7490]"
+                  ? "border-white/5 bg-white/[0.01] text-white/60 hover:border-[#06B6D4]/40 hover:text-[#06B6D4]"
+                  : "border-slate-300 bg-white/80 text-slate-700 hover:border-[#0E7490]/60 hover:text-[#0E7490]"
               }`}
             >
               <Mail className="w-3.5 h-3.5" />
@@ -435,7 +441,7 @@ function PortfolioAppContent() {
                   className={`px-5 py-3 text-xs font-bold rounded-none uppercase tracking-wider border transition-all hover:scale-105 active:scale-95 cursor-pointer ${
                     isDarkMode
                       ? "border-[#06B6D4]/30 bg-cyan-950/10 hover:bg-[#06B6D4]/10 text-white hover:border-[#06B6D4]"
-                      : "border-[#0E7490]/30 bg-slate-550/10 hover:bg-[#0E7490]/10 text-[#0F172A] hover:border-[#0E7490]"
+                      : "border-[#0E7490]/40 bg-white/80 hover:bg-[#0E7490]/10 text-[#0F172A] hover:border-[#0E7490]"
                   }`}
                 >
                   <span>Analyze Projects</span>
@@ -448,20 +454,22 @@ function PortfolioAppContent() {
               <div className="relative w-full max-w-[420px] aspect-square flex flex-col items-center justify-center">
                 
                 {/* Visual alignment brackets */}
-                <div className="absolute inset-0 border border-dashed rounded-none animate-[spin_120s_linear_infinite] opacity-10 border-white/40" />
-                <div className={`absolute inset-3 border border-dashed opacity-10 animate-[spin_80s_linear_infinite_reverse] ${
-                  isDarkMode ? "border-[#06B6D4]" : "border-[#0E7490]"
+                <div className={`absolute inset-0 border border-dashed rounded-none animate-[spin_120s_linear_infinite] ${
+                  isDarkMode ? "opacity-10 border-white/40" : "opacity-25 border-[#0E7490]/50"
+                }`} />
+                <div className={`absolute inset-3 border border-dashed animate-[spin_80s_linear_infinite_reverse] ${
+                  isDarkMode ? "opacity-10 border-[#06B6D4]" : "opacity-25 border-[#0E7490]"
                 }`} />
 
                 {/* Tracking reticle dots and crosshairs */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1px] h-3 bg-white/30" />
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[1px] h-3 bg-white/30" />
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-[1px] bg-white/30" />
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-[1px] bg-white/30" />
+                <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-[1px] h-3 ${isDarkMode ? "bg-white/30" : "bg-[#0E7490]/40"}`} />
+                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-[1px] h-3 ${isDarkMode ? "bg-white/30" : "bg-[#0E7490]/40"}`} />
+                <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-3 h-[1px] ${isDarkMode ? "bg-white/30" : "bg-[#0E7490]/40"}`} />
+                <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-3 h-[1px] ${isDarkMode ? "bg-white/30" : "bg-[#0E7490]/40"}`} />
 
                 {/* Subtly animated sonar scan ring */}
                 <div className={`absolute w-12 h-12 rounded-none border opacity-20 animate-ping ${
-                  isDarkMode ? "border-[#06B6D4]/40" : "border-[#0E7490]/40"
+                  isDarkMode ? "border-[#06B6D4]/40" : "border-[#0E7490]/50"
                 }`} />
 
                 {/* Tracking status watermark below docking ring */}
@@ -469,7 +477,7 @@ function PortfolioAppContent() {
                   <div className={`text-[8px] font-mono tracking-[0.25em] uppercase font-extrabold ${isDarkMode ? "text-[#06B6D4]" : "text-[#0E7490]"}`}>
                     GLOBAL_NODAL_MATRIX_ROT
                   </div>
-                  <div className={`text-[7px] font-mono mt-0.5 ${isDarkMode ? "text-white/20" : "text-black/20"}`}>
+                  <div className={`text-[7px] font-mono mt-0.5 ${isDarkMode ? "text-white/20" : "text-slate-500"}`}>
                     SYS_W_PERSPECTIVE_PROJECTION_v2.0
                   </div>
                 </div>
@@ -483,40 +491,40 @@ function PortfolioAppContent() {
             SECTION 2: TELEMETRY & CONCEPTUALITY
             ==================================== */}
         <section id="conceptuality" className="scroll-mt-12">
-          <div className="border-b border-white/5 pb-2.5 mb-6">
+          <div className="border-b border-[var(--theme-divider)] pb-2.5 mb-6">
             <span className={`font-mono text-[9px] font-extrabold tracking-widest ${isDarkMode ? "text-[#06B6D4]" : "text-[#0E7490]"}`}>PORTFOLIO_NODE_01 //</span>
             <h2 className="text-xl sm:text-2xl font-extrabold tracking-wider uppercase mt-1">OFFENSIVE_INTEL_CORE</h2>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            {/* Renamed Biological Overview styled around Conceptuality */}
-            <div className="lg:col-span-8 p-6 rounded-none cyber-panel cyber-panel-glow flex flex-col justify-between border-l-4 border-l-[#06B6D4]">
-              <div className="absolute top-2.5 right-3 flex items-center space-x-1 select-none text-[8px] font-mono font-bold uppercase tracking-wider">
+            {/* Conceptuality Overview */}
+            <div className="lg:col-span-8 p-6 rounded-none cyber-panel cyber-panel-glow flex flex-col justify-between border-l-4 border-l-[var(--theme-accent)]">
+              <div className="absolute top-2.5 right-3 flex items-center space-x-1 select-none text-[8px] font-mono font-bold uppercase tracking-wider text-[var(--theme-text-dim)]">
                 <span className={`w-1.5 h-1.5 rounded-none animate-pulse ${isDarkMode ? "bg-[#06B6D4]" : "bg-[#0E7490]"}`} />
                 <span>SPEC_CONCEPT_01</span>
               </div>
 
               <div className="space-y-4">
-                <div className="border-b border-white/5 pb-2">
-                  <span className={`text-[8px] uppercase tracking-widest block font-bold ${isDarkMode ? "text-white/40" : "text-[#13221C]/40"}`}>SEC_HANDSHAKE_PROFILE</span>
+                <div className="border-b border-[var(--theme-divider)] pb-2">
+                  <span className={`text-[8px] uppercase tracking-widest block font-bold ${isDarkMode ? "text-white/40" : "text-slate-500"}`}>SEC_HANDSHAKE_PROFILE</span>
                   <h3 className="text-lg font-black tracking-wide mt-1 uppercase">ARCHITECTURAL SCHEMATIC</h3>
                 </div>
                 
-                <p className={`text-xs sm:text-sm leading-relaxed ${isDarkMode ? "text-[#94A3B8]" : "text-[#0F172A]"}`}>
+                <p className={`text-xs sm:text-sm leading-relaxed ${isDarkMode ? "text-[#94A3B8]" : "text-slate-700"}`}>
                   My technical philosophy is built upon the synthesis of performance engineering and analytical pipeline rigor:
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  <div className={`p-3 rounded-none border bg-white/[0.01] ${isDarkMode ? "border-white/5" : "border-black/5"}`}>
+                  <div className={`p-3 rounded-none border ${isDarkMode ? "bg-white/[0.01] border-white/5" : "bg-slate-50 border-slate-200"}`}>
                     <span className={`text-[8px] font-mono font-extrabold block mb-1 uppercase ${isDarkMode ? "text-[#06B6D4]" : "text-[#0E7490]"}`}>01 // PIPELINE INTELLIGENCE</span>
-                    <p className={`text-[10px] leading-relaxed ${isDarkMode ? "text-white/60" : "text-black/60"}`}>
+                    <p className={`text-[10px] leading-relaxed ${isDarkMode ? "text-white/60" : "text-slate-600"}`}>
                       Optimizing core data ETL streams. Reducing latency in database transaction nodes and constructing elegant schemas.
                     </p>
                   </div>
-                  <div className={`p-3 rounded-none border bg-white/[0.01] ${isDarkMode ? "border-white/5" : "border-black/5"}`}>
+                  <div className={`p-3 rounded-none border ${isDarkMode ? "bg-white/[0.01] border-white/5" : "bg-slate-50 border-slate-200"}`}>
                     <span className={`text-[8px] font-mono font-extrabold block mb-1 uppercase ${isDarkMode ? "text-[#06B6D4]" : "text-[#0E7490]"}`}>02 // ANALYTIC COHORT</span>
-                    <p className={`text-[10px] leading-relaxed ${isDarkMode ? "text-white/60" : "text-black/60"}`}>
+                    <p className={`text-[10px] leading-relaxed ${isDarkMode ? "text-white/60" : "text-slate-600"}`}>
                       Leading technical workshops and analytics teams, converting complex statistical models into actionable KPI targets.
                     </p>
                   </div>
@@ -524,15 +532,17 @@ function PortfolioAppContent() {
               </div>
 
               {/* Secure Credentials Clip Copy */}
-              <div className="mt-6 pt-4 border-t border-white/5 space-y-1.5 text-[10px]">
-                <div className="flex justify-between items-center bg-white/[0.015] px-3 py-2 border border-white/5 rounded-none">
-                  <span className={`font-extrabold select-none ${isDarkMode ? "text-white/40" : "text-[#13221C]/50"}`}>PRIMARY SEC_MAIL_BUFFER:</span>
+              <div className="mt-6 pt-4 border-t border-[var(--theme-divider)] space-y-1.5 text-[10px]">
+                <div className={`flex justify-between items-center px-3 py-2 border rounded-none ${
+                  isDarkMode ? "bg-white/[0.015] border-white/5" : "bg-slate-50 border-slate-200"
+                }`}>
+                  <span className={`font-extrabold select-none ${isDarkMode ? "text-white/40" : "text-slate-500"}`}>PRIMARY SEC_MAIL_BUFFER:</span>
                   <div className="flex items-center space-x-1.5">
-                    <span className={`font-mono ${isDarkMode ? "text-white/80" : "text-[#13221C]/80"}`}>{portfolioData.personalInfo.email}</span>
+                    <span className={`font-mono ${isDarkMode ? "text-white/80" : "text-slate-900 font-semibold"}`}>{portfolioData.personalInfo.email}</span>
                     <button
                       onClick={() => copyToClipboard(portfolioData.personalInfo.email, "email")}
                       className={`p-1 select-none cursor-pointer transition-colors ${
-                        isDarkMode ? "hover:text-[#06B6D4] text-white/40" : "hover:text-[#047857] text-[#13221C]/40"
+                        isDarkMode ? "hover:text-[#06B6D4] text-white/40" : "hover:text-[#0E7490] text-slate-500"
                       }`}
                       title="Copy Address to Secure Clip Clipboard Buffer"
                     >
@@ -559,7 +569,7 @@ function PortfolioAppContent() {
             </div>
 
             {/* Live gauges card (Networking wave) */}
-            <div className="lg:col-span-4 p-6 rounded-none cyber-panel cyber-panel-glow flex flex-col justify-center border-t-4 border-t-[#06B6D4]">
+            <div className="lg:col-span-4 p-6 rounded-none cyber-panel cyber-panel-glow flex flex-col justify-center border-t-4 border-t-[var(--theme-accent)]">
               <TelemetryGauges />
             </div>
 
@@ -570,23 +580,23 @@ function PortfolioAppContent() {
             SECTION 3: COMMAND TERMINAL SHELL
             ==================================== */}
         <section id="terminal" className="scroll-mt-12">
-          <div className="border-b border-white/5 pb-2.5 mb-6">
+          <div className="border-b border-[var(--theme-divider)] pb-2.5 mb-6">
             <span className={`font-mono text-[9px] font-extrabold tracking-widest ${isDarkMode ? "text-[#06B6D4]" : "text-[#0E7490]"}`}>PORTFOLIO_NODE_02 //</span>
             <h2 className="text-xl sm:text-2xl font-extrabold tracking-wider uppercase mt-1">AURORA_OFFENSIVE_SHELL</h2>
           </div>
 
           <div className="p-4 rounded-none cyber-panel cyber-panel-glow w-full flex flex-col justify-between min-h-[500px] border-l-4 border-l-[#ef4444]">
             {/* Top Frame Title indicators - Hackish Linux styled */}
-            <div className="relative flex justify-between items-center border-b border-white/5 pb-2.5 mb-4 select-none font-mono">
+            <div className="relative flex justify-between items-center border-b border-[var(--theme-divider)] pb-2.5 mb-4 select-none font-mono">
               <div className="flex items-center space-x-2">
                 <span className="w-2.5 h-2.5 bg-red-600 rounded-none transform rotate-45" />
                 <span className="w-2.5 h-2.5 bg-cyan-500 rounded-none transform rotate-45" />
-                <span className="w-2.5 h-2.5 bg-neutral-600 rounded-none transform rotate-45" />
-                <span className={`text-[9px] font-black tracking-wider pl-1.5 uppercase ${isDarkMode ? "text-white/60" : "text-[#0F172A]/60"}`}>
+                <span className={`w-2.5 h-2.5 rounded-none transform rotate-45 ${isDarkMode ? "bg-neutral-600" : "bg-slate-400"}`} />
+                <span className={`text-[9px] font-black tracking-wider pl-1.5 uppercase ${isDarkMode ? "text-white/60" : "text-slate-700"}`}>
                   INTERACTIVE_MAIN_PORT: guest@aurora:~#
                 </span>
               </div>
-              <div className="text-[8px] text-white/30 flex items-center space-x-1">
+              <div className={`text-[8px] flex items-center space-x-1 ${isDarkMode ? "text-white/30" : "text-slate-500"}`}>
                 <span className={`w-1.5 h-1.5 rounded-none animate-ping ${isDarkMode ? "bg-[#06B6D4]" : "bg-[#0E7490]"}`} />
                 <span>ROOT_LEVEL_SANDBOX</span>
               </div>
@@ -596,7 +606,9 @@ function PortfolioAppContent() {
               <TerminalPane onAdminTrigger={() => setIsAdminOpen(true)} />
             </div>
 
-            <div className="border-t border-white/5 pt-3 mt-4 flex flex-col sm:flex-row sm:items-center justify-between text-[8px] font-mono text-white/30 select-none">
+            <div className={`border-t border-[var(--theme-divider)] pt-3 mt-4 flex flex-col sm:flex-row sm:items-center justify-between text-[8px] font-mono select-none ${
+              isDarkMode ? "text-white/30" : "text-slate-500"
+            }`}>
               <div className="flex items-center space-x-1.5">
                 <Workflow className={`w-3 h-3 ${isDarkMode ? "text-[#06B6D4]" : "text-[#0E7490]"}`} />
                 <span className="uppercase">SOCKET STABLE // guest EXPLOITATION PORT CLOSED</span>
@@ -612,7 +624,7 @@ function PortfolioAppContent() {
             SECTION 4: TECHNICAL STACK (SKILLS)
             ==================================== */}
         <section id="skills" className="scroll-mt-12">
-          <div className="border-b border-white/5 pb-2.5 mb-6">
+          <div className="border-b border-[var(--theme-divider)] pb-2.5 mb-6">
             <span className={`font-mono text-[9px] font-extrabold tracking-widest ${isDarkMode ? "text-[#06B6D4]" : "text-[#0E7490]"}`}>PORTFOLIO_NODE_03 //</span>
             <h2 className="text-xl sm:text-2xl font-extrabold tracking-wider uppercase mt-1">OFFENSIVE SKILLS ENGINE</h2>
           </div>
@@ -624,7 +636,7 @@ function PortfolioAppContent() {
             SECTION 5: ANALYTICAL MODELS (PROJECTS)
             ==================================== */}
         <section id="projects" className="scroll-mt-12">
-          <div className="border-b border-white/5 pb-2.5 mb-6">
+          <div className="border-b border-[var(--theme-divider)] pb-2.5 mb-6">
             <span className={`font-mono text-[9px] font-extrabold tracking-widest ${isDarkMode ? "text-[#06B6D4]" : "text-[#0E7490]"}`}>PORTFOLIO_NODE_04 //</span>
             <h2 className="text-xl sm:text-2xl font-extrabold tracking-wider uppercase mt-1">AUDITED SECURE PROJECTS</h2>
           </div>
@@ -636,7 +648,7 @@ function PortfolioAppContent() {
             SECTION 6: CAREER LOG CHECKPOINTS (EXPERIENCE)
             ==================================== */}
         <section id="experience" className="scroll-mt-12">
-          <div className="border-b border-white/5 pb-2.5 mb-6">
+          <div className="border-b border-[var(--theme-divider)] pb-2.5 mb-6">
             <span className={`font-mono text-[9px] font-extrabold tracking-widest ${isDarkMode ? "text-[#06B6D4]" : "text-[#0E7490]"}`}>PORTFOLIO_NODE_05 //</span>
             <h2 className="text-xl sm:text-2xl font-extrabold tracking-wider uppercase mt-1">TACTICAL OPERATION LOGS</h2>
           </div>
@@ -648,7 +660,7 @@ function PortfolioAppContent() {
             SECTION 7: ACADEMIC CREDENTIALS Matrix (EDUCATION / CERTIFICATIONS)
             ==================================== */}
         <section id="credentials" className="scroll-mt-12">
-          <div className="border-b border-white/5 pb-2.5 mb-6">
+          <div className="border-b border-[var(--theme-divider)] pb-2.5 mb-6">
             <span className={`font-mono text-[9px] font-extrabold tracking-widest ${isDarkMode ? "text-[#06B6D4]" : "text-[#0E7490]"}`}>PORTFOLIO_NODE_06 //</span>
             <h2 className="text-xl sm:text-2xl font-extrabold tracking-wider uppercase mt-1">ACADEMIC MATRIX & VERIFICATION</h2>
           </div>
@@ -660,10 +672,10 @@ function PortfolioAppContent() {
 
       {/* 4. Footer Telemetry Log Line */}
       <footer className={`w-full border-t py-4 px-4 flex flex-col sm:flex-row justify-between items-center text-[8px] font-mono select-none relative z-10 tracking-widest ${
-        isDarkMode ? "border-white/5 bg-[#050608]/95 text-white/30" : "border-black/5 bg-[#E6ECF0]/95 text-black/40"
+        isDarkMode ? "border-white/5 bg-[#050608]/95 text-white/30" : "border-slate-300 bg-white/95 text-slate-600"
       }`}>
         <div className={`flex items-center space-x-1.5 font-bold uppercase ${isDarkMode ? "text-[#06B6D4]" : "text-[#0E7490]"}`}>
-          <Server className="w-3 h-3 text-[#06B6D4]" />
+          <Server className="w-3 h-3 text-[var(--theme-accent)]" />
           <span>CYBERNETIC DATA_SCIENCE FRAMEWORK // ARUNAM_JAIN // SHARP TACTICAL AURORA ENGINE</span>
         </div>
         <div className="mt-2 sm:mt-0 font-extrabold">

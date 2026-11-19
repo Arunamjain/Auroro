@@ -6,31 +6,57 @@
   --font-mono: "JetBrains Mono", "Share Tech Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
-/* Custom CSS variables for beautiful, tactical Aurora Linux dark theme */
+/* Custom CSS variables for tactical Aurora dark theme */
 :root {
-  --theme-bg: #0B0E14; /* Deep tactical charcoal slate */
+  --theme-bg: #0B0E14;
   --theme-bg-panel: rgba(15, 20, 28, 0.95);
+  --theme-surface: rgba(255, 255, 255, 0.015);
+  --theme-surface-subtle: rgba(255, 255, 255, 0.01);
+  --theme-surface-hover: rgba(255, 255, 255, 0.04);
+  --theme-chip-bg: #0B0E14;
+  --theme-divider: rgba(255, 255, 255, 0.07);
+  --theme-divider-strong: rgba(255, 255, 255, 0.3);
   --theme-text: #E2E8F0;
+  --theme-text-strong: #FFFFFF;
+  --theme-text-body: rgba(255, 255, 255, 0.82);
+  --theme-text-secondary: rgba(255, 255, 255, 0.60);
+  --theme-text-dim: rgba(255, 255, 255, 0.44);
+  --theme-text-faint: rgba(255, 255, 255, 0.30);
   --theme-text-muted: rgba(148, 163, 184, 0.6);
-  --theme-border: rgba(6, 182, 212, 0.25); /* Cyan / Turquoise border */
+  --theme-border: rgba(6, 182, 212, 0.25);
   --theme-border-hover: rgba(6, 182, 212, 0.6);
-  --theme-accent: #06B6D4; /* Aurora Cyan */
+  --theme-accent: #06B6D4;
+  --theme-bar-fill: #FFFFFF;
+  --theme-bar-track: rgba(255, 255, 255, 0.08);
   --theme-shadow: rgba(0, 0, 0, 0.85);
   --theme-grid: rgba(6, 182, 212, 0.035);
   --theme-glow: rgba(6, 182, 212, 0.25);
 }
 
 .light-theme {
-  --theme-bg: #F1F5F9; /* Slate gray titanium */
-  --theme-bg-panel: rgba(255, 255, 255, 0.98);
+  --theme-bg: #F1F5F9;
+  --theme-bg-panel: rgba(255, 255, 255, 0.96);
+  --theme-surface: rgba(255, 255, 255, 0.92);
+  --theme-surface-subtle: rgba(248, 250, 252, 0.9);
+  --theme-surface-hover: rgba(14, 116, 144, 0.08);
+  --theme-chip-bg: rgba(14, 116, 144, 0.08);
+  --theme-divider: rgba(15, 23, 42, 0.12);
+  --theme-divider-strong: rgba(14, 116, 144, 0.55);
   --theme-text: #0F172A;
+  --theme-text-strong: #0F172A;
+  --theme-text-body: #1E293B;
+  --theme-text-secondary: #334155;
+  --theme-text-dim: #475569;
+  --theme-text-faint: #64748B;
   --theme-text-muted: rgba(71, 85, 105, 0.85);
-  --theme-border: rgba(14, 116, 144, 0.35);
-  --theme-border-hover: rgba(14, 116, 144, 0.7);
+  --theme-border: rgba(14, 116, 144, 0.30);
+  --theme-border-hover: rgba(14, 116, 144, 0.70);
   --theme-accent: #0E7490;
-  --theme-shadow: rgba(14, 116, 144, 0.05);
-  --theme-grid: rgba(14, 116, 144, 0.04);
-  --theme-glow: rgba(14, 116, 144, 0.12);
+  --theme-bar-fill: #0F172A;
+  --theme-bar-track: rgba(15, 23, 42, 0.12);
+  --theme-shadow: rgba(15, 23, 42, 0.08);
+  --theme-grid: rgba(14, 116, 144, 0.06);
+  --theme-glow: rgba(14, 116, 144, 0.14);
 }
 
 /* Custom Core Animations & Styles */
@@ -38,13 +64,13 @@
   body {
     background-color: var(--theme-bg);
     color: var(--theme-text);
-    font-family: var(--font-mono); /* Make mono default for a pristine Aurora hacker terminal look */
+    font-family: var(--font-mono);
     overflow-x: hidden;
     transition: background-color 0.4s ease, color 0.4s ease;
   }
 }
 
-/* Cybernetic Scanlines & CRT simulation - Subtly toned down for elegant look */
+/* Cybernetic Scanlines & CRT simulation */
 .terminal-crt::after {
   content: " ";
   display: block;
@@ -57,13 +83,13 @@
   opacity: 0.35;
 }
 
-/* Tactical Flat / Sharp Card Panels (Aurora makeover replaces rounded corners with sharp edges) */
+/* Tactical Flat / Sharp Card Panels */
 .cyber-panel {
   border: 1px solid var(--theme-border);
   background-color: var(--theme-bg-panel);
   backdrop-filter: blur(8px);
   box-shadow: 0 4px 20px 0 var(--theme-shadow);
-  border-radius: 0px !important; /* Zero roundness for a tactical sharp look */
+  border-radius: 0px !important;
   position: relative;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
               border-color 0.3s ease,
@@ -102,7 +128,7 @@
 /* Digital Grid lines background */
 .cyber-grid-overlay {
   background-size: 40px 40px;
-  background-image: 
+  background-image:
     linear-gradient(to right, var(--theme-grid) 1px, transparent 1px),
     linear-gradient(to bottom, var(--theme-grid) 1px, transparent 1px);
 }
@@ -127,7 +153,11 @@
   will-change: transform;
 }
 
-/* Custom elegant scrollbar */
+.light-theme .cyber-scan-bar {
+  background: linear-gradient(to bottom, transparent, rgba(14, 116, 144, 0.14), transparent);
+}
+
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -137,16 +167,28 @@
   background: rgba(10, 10, 10, 0.9);
 }
 
+.light-theme ::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.9);
+}
+
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 99px;
+}
+
+.light-theme ::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.25);
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Elegant text glow */
+.light-theme ::-webkit-scrollbar-thumb:hover {
+  background: rgba(14, 116, 144, 0.5);
+}
+
+/* Text glow */
 .cyber-glow-text {
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.15);
 }
@@ -158,6 +200,3 @@
 .cyber-glow-accent {
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
 }
-
-
-

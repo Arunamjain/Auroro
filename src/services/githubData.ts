@@ -155,10 +155,10 @@ export async function fetchPortfolioFromGitHub(token?: string | null): Promise<F
 
     if (res.status === 404) {
       return {
-        data: githubFileToPortfolio(null, true),
+        data: structuredClone(bundledPortfolioData),
         source: "github-empty",
         sha: null,
-        message: "GitHub data.json returned 404 — treating all four sections as empty.",
+        message: "GitHub data.json not yet created (404) — displaying bundled data.json until published.",
       };
     }
 
